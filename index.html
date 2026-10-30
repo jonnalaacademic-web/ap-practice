@@ -321,6 +321,41 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
 })();
 </script>
 
+<style id="inv2027-css">
+/* 2027 Invitationals tab */
+.itab { border: 0; background: transparent; padding: 8px 14px; border-radius: 999px; font-weight: 600; color: var(--muted); display: inline-flex; gap: 8px; align-items: center; }
+.itab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.itab .tmr { font-size: 0.78rem; font-weight: 600; }
+.itab .tmr:empty { display: none; }
+.invplate { max-width: 640px; margin: 4px 0 12px; }
+.invplate img { display: block; width: 100%; height: auto; cursor: zoom-in; }
+.invref { margin: -2px 0 8px; }
+.invnav summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; }
+.invnav .strip { gap: 4px; }
+.invnav .chip { min-width: 32px; }
+.chip.a { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.chip.h { background: color-mix(in srgb, var(--ok-bg) 50%, var(--miss-bg)); border-color: #C9922A; color: var(--ink); }
+.chip.u { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); border-style: dashed; }
+.invkey { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 8px 0 0; }
+.invkey .chip { min-width: 24px; height: 22px; padding: 0 4px; display: inline-grid; place-items: center; }
+.sgrade { margin-top: 10px; gap: 6px; }
+.sgrade .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.invnote { margin-top: 8px; border-left: 3px solid #C9922A; padding-left: 9px; font-size: 0.9rem; }
+.invpick { font-style: italic; }
+.invmlist { margin: 4px 0 10px; padding-left: 22px; } .invmlist li { margin: 3px 0; }
+.invmatch { display: grid; gap: 6px; margin-bottom: 12px; }
+.invmatch .lrow { flex-wrap: wrap; }
+.invmatch .invmi { flex: 1 1 160px; min-width: 0; font-weight: 500; }
+.invmatch select { font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); min-width: 92px; }
+.mq.hide { display: none; }
+.mq { scroll-margin-top: 70px; }
+@media (prefers-reduced-motion: no-preference) { .mq.flash { animation: invflash 1.4s ease-out; } }
+@keyframes invflash { 0% { background: var(--accent-soft); } 100% { background: transparent; } }
+#invFilter { margin-top: 2px; }
+.invlb { position: fixed; inset: 0; z-index: 50; background: rgba(8, 12, 20, 0.88); display: grid; place-items: center; padding: 16px; cursor: zoom-out; }
+.invlb img { max-width: 100%; max-height: calc(100dvh - 90px); width: auto; height: auto; background: #fff; border-radius: 6px; }
+.invlb-x { position: fixed; top: max(12px, env(safe-area-inset-top, 0px)); right: 12px; }
+</style>
 </head><body><div id='appShell' hidden>
 <header class="top">
   <div class="wrap top-in">
@@ -476,6 +511,426 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
           ${Nt?`<div class="confirm"><p>This erases your scores, streak, mock tests and review pile${i.on()?" on every device that uses your backup code":" in this browser"}. It can't be undone.</p><div class="btns"><button class="btn danger" id="pyes">Erase everything</button><button class="btn" id="pno">Cancel</button></div></div>`:""}</div>
         ${i.panelHTML()}
       </div>`,i.wirePanel(),p("#pdaily").onclick=()=>tt("daily"),p("#pmock").onclick=()=>tt("mock");const S=p("#preview");S&&(S.onclick=()=>tt("review")),p("#preset").onclick=()=>{Nt=!0,pt()};const E=p("#pyes");E&&(E.onclick=()=>{k={items:{},days:{},mocks:[],updated:J(),resetAt:J()},Nt=!1,ut(),i.changed(),Y(),Et(),pt()});const T=p("#pno");T&&(T.onclick=()=>{Nt=!1,pt()}),t.querySelectorAll("[data-weak]").forEach(d=>d.onclick=()=>{const v=b[+d.dataset.weak];f.sys=v.s,v.kind==="label"?(f.mode="label",f.sub="n",_(),W(),p("#modeHead").innerHTML="",ot(v.s,v.di,"n"),j()):(f.mode=v.kind,v.kind==="bank"&&(f.qtype="all"),_(),W(),p("#modeHead").innerHTML="",it(v.s,v.si,v.kind),j()),window.scrollTo({top:0})})}function tt(t){f.mode=t,_(),W(),kt(),j(),window.scrollTo({top:0})}document.addEventListener("keydown",t=>{if(t.target.matches("input, textarea")||t.metaKey||t.ctrlKey||t.altKey||!l||!m)return;const e=l.items[l.i];if(e&&e.k==="P"&&!m.done&&m.opts){const s="abcdefgh".indexOf(t.key.toLowerCase());s>=0&&s<m.opts.length&&(m.pick=s,K(m.opts[s].ok))}});function W(){document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",String(t.dataset.mode===f.mode))),document.querySelectorAll("#sysSeg button").forEach(t=>t.setAttribute("aria-pressed",String(t.dataset.sys===f.sys))),document.querySelectorAll("#divSeg button").forEach(t=>t.setAttribute("aria-pressed",String(t.dataset.div===f.div))),p("#sysSeg").hidden=ue.includes(f.mode)}function kt(){if(f.mode!=="daily"&&(p("#modeHead").innerHTML=""),f.mode==="daily")return _t();if(f.mode==="mock"||f.mode==="progress")return l=null,m=null,f.mode==="mock"?$t():pt();if(f.mode==="study")return l=null,m=null,Rt();f.mode==="label"?ot(f.sys,0,f.sub):f.mode==="path"?it(f.sys,0):f.mode==="bank"?it(f.sys,Math.max(0,Pt(f.sys,"bank",0)),"bank"):re(f.sys,"all")}function ns(){W(),j(),Y(),Et(),f.mode==="progress"&&pt(),f.mode==="daily"&&_t()}document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{f.mode=t.dataset.mode,_(),W(),kt(),j()}),document.querySelectorAll("#sysSeg button").forEach(t=>t.onclick=()=>{f.sys=t.dataset.sys,_(),W(),kt(),j()}),document.querySelectorAll("#divSeg button").forEach(t=>t.onclick=()=>{f.div=t.dataset.div,_(),W(),kt(),j(),Y()});const as=()=>window.__apTheme?window.__apTheme():"dark",xe=()=>document.querySelectorAll("#themeSeg button").forEach(t=>t.setAttribute("aria-pressed",String(t.dataset.themeSet===as())));document.querySelectorAll("#themeSeg button").forEach(t=>t.onclick=()=>{window.__apSetTheme&&window.__apSetTheme(t.dataset.themeSet,!0),xe()}),xe(),A.includes(f.sys)||(f.sys="respiratory"),["daily","study","label","path","bank","review","mock","progress"].includes(f.mode)||(f.mode="daily"),ts(),$&&$.phase==="running"&&Date.now()>=$.endAt&&Ut(),zt(),W(),kt(),j(),Y(),Et();const Me=document.getElementById("appShell");Me&&(Me.hidden=!1);const Te=document.getElementById("plainCopy");Te&&(Te.hidden=!0),i.init()})();};</script>
+<!--inv2027--><script>
+/* A&P Practice Stations: "2027 Invitationals" tab.
+   Full tournament tests (same questions, order, points and answer keys as the uploaded Scilympiad papers).
+   Data: window.APDATA.inv. Progress: localStorage "ap-inv-2027" (this device only). */
+(function () {
+  "use strict";
+  var booted = false;
+  function boot() {
+    if (booted) return;
+    var DATA = window.APDATA && window.APDATA.inv;
+    if (!DATA || !DATA.tests || !DATA.tests.length) return;
+    booted = true;
+
+    var $ = function (s, r) { return (r || document).querySelector(s); };
+    var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+    var LET = "ABCDEFGH";
+    var fmt = function (x) { return String(Math.round(x * 100) / 100); };
+    var pct = function (e, p) { return p ? Math.round((e / p) * 100) : 0; };
+    var TESTS = {};
+    DATA.tests.forEach(function (t) { TESTS[t.id] = t; });
+
+    /* ---------- saved state ---------- */
+    var SK = "ap-inv-2027";
+    var S = { cur: DATA.tests[0].id, open: false, filter: "all", t: {} };
+    try { var saved = JSON.parse(localStorage.getItem(SK) || "null"); if (saved && saved.t) S = Object.assign(S, saved); } catch (e) {}
+    if (!TESTS[S.cur]) S.cur = DATA.tests[0].id;
+    function T(id) {
+      if (!S.t[id]) S.t[id] = { phase: "intro", timed: true, resp: {}, self: {}, hist: [] };
+      return S.t[id];
+    }
+    var saveTimer = null;
+    function saveNow() { clearTimeout(saveTimer); saveTimer = null; try { localStorage.setItem(SK, JSON.stringify(S)); } catch (e) {} }
+    function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); }
+    window.addEventListener("pagehide", saveNow);
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") saveNow(); });
+
+    /* ---------- grading ---------- */
+    function answered(q, v) {
+      if (v == null) return false;
+      if (q.type === "multi") return Array.isArray(v) && v.length > 0;
+      if (q.type === "match") return Array.isArray(v) && v.some(function (x) { return x != null && x !== ""; });
+      if (q.type === "fr") return String(v).trim() !== "";
+      return true;
+    }
+    // earned points, or null for a written answer not graded yet
+    function earned(q, v, st) {
+      if (q.type === "mc" || q.type === "tf") return v === q.ans ? q.pts : 0;
+      if (q.type === "multi") {
+        if (!Array.isArray(v) || !v.length) return 0;
+        var right = 0, wrong = 0;
+        v.forEach(function (k) { if (q.ans.indexOf(k) >= 0) right++; else wrong++; });
+        return Math.max(0, (right - wrong) / q.ans.length) * q.pts;
+      }
+      if (q.type === "match") {
+        if (!Array.isArray(v)) return 0;
+        var ok = 0;
+        q.ans.forEach(function (a, i) { if (v[i] === a) ok++; });
+        return (ok / q.ans.length) * q.pts;
+      }
+      var s = st.self[q.n];
+      if (s == null && !answered(q, v)) return 0; // left blank: no credit, nothing to grade
+      return s == null ? null : s;
+    }
+    function totals(t, st) {
+      var R = { e: 0, p: t.total, auto: [0, 0], self: [0, 0], ungraded: 0, sec: {}, tb: [] };
+      t.qs.forEach(function (q) {
+        var v = st.resp[q.n], g = earned(q, v, st);
+        if (!R.sec[q.sec]) R.sec[q.sec] = [0, 0];
+        R.sec[q.sec][1] += q.pts;
+        if (q.type === "fr") {
+          R.self[1] += q.pts;
+          if (g == null) R.ungraded++; else R.self[0] += g;
+        } else R.auto[1] += q.pts;
+        if (g != null) { R.e += g; R.sec[q.sec][0] += g; if (q.type !== "fr") R.auto[0] += g; }
+        if (q.tb) R.tb.push({ n: q.n, tb: q.tb, g: g, p: q.pts });
+      });
+      R.tb.sort(function (a, b) { return a.tb - b.tb; });
+      return R;
+    }
+    function verdictOf(q, g) {
+      if (g == null) return "u";
+      if (g >= q.pts - 1e-9) return "g";
+      return g > 0 ? "h" : "r";
+    }
+
+    /* ---------- DOM: tab + view ---------- */
+    var mockTab = $("#tab-mock"), nav = $(".tabs");
+    var tab = document.createElement("button");
+    tab.type = "button"; tab.className = "itab"; tab.id = "tab-inv"; tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", "false");
+    tab.innerHTML = '2027 Invitationals <span class="tmr mono" id="invTimer"></span>';
+    if (mockTab && mockTab.parentNode) mockTab.parentNode.insertBefore(tab, mockTab.nextSibling); else if (nav) nav.appendChild(tab);
+
+    var mainEl = $("#main");
+    var view = document.createElement("main");
+    view.className = "wrap layout"; view.id = "invMain"; view.hidden = true;
+    view.innerHTML = '<aside class="picker" id="invPicker" aria-label="Choose a test"></aside><section class="stage"><div class="stage-in" id="invStage"></div></section>';
+    mainEl.parentNode.insertBefore(view, mainEl.nextSibling);
+    var picker = $("#invPicker"), stage = $("#invStage");
+    var lb = document.createElement("div");
+    lb.className = "invlb"; lb.hidden = true; lb.setAttribute("role", "dialog"); lb.setAttribute("aria-label", "Enlarged image");
+    lb.innerHTML = '<img alt=""><button type="button" class="btn invlb-x">Close</button>';
+    document.body.appendChild(lb);
+
+    function setOpen(on) {
+      S.open = on; saveNow();
+      view.hidden = !on; mainEl.hidden = on;
+      ["#sysSeg", "#divSeg"].forEach(function (s) { var el = $(s); if (el) el.hidden = on; });
+      tab.setAttribute("aria-selected", String(on));
+      if (on) $$(".tab").forEach(function (b) { b.setAttribute("aria-selected", "false"); });
+    }
+    tab.addEventListener("click", function () { setOpen(true); render(); window.scrollTo({ top: 0 }); });
+    $$(".tab").forEach(function (b) { b.addEventListener("click", function () { if (S.open) setOpen(false); }); });
+
+    /* ---------- clock ---------- */
+    function mmss(ms) {
+      var s = Math.max(0, Math.round(ms / 1000)), m = Math.floor(s / 60);
+      return m + ":" + String(s % 60).padStart(2, "0");
+    }
+    function clockText(st) {
+      return st.timed ? mmss(st.endAt - Date.now()) : mmss(Date.now() - st.startAt);
+    }
+    function tick() {
+      var tabTxt = "";
+      DATA.tests.forEach(function (t) {
+        var st = S.t[t.id];
+        if (!st || st.phase !== "running") return;
+        if (st.timed && Date.now() >= st.endAt) { submit(t.id, true); return; }
+        if (st.timed && !tabTxt) tabTxt = mmss(st.endAt - Date.now());
+      });
+      var tt = $("#invTimer"); if (tt) tt.textContent = tabTxt;
+      var st = S.t[S.cur], c = $("#invClock");
+      if (c && st && st.phase === "running") {
+        c.textContent = clockText(st);
+        c.classList.toggle("low", !!st.timed && st.endAt - Date.now() < 5 * 60000);
+      }
+    }
+    setInterval(tick, 1000);
+
+    /* ---------- actions ---------- */
+    function start(id) {
+      var st = T(id);
+      st.phase = "running"; st.resp = {}; st.self = {}; st.startAt = Date.now();
+      st.endAt = st.startAt + TESTS[id].minutes * 60000; st.endedAt = null; st.rec = null;
+      saveNow(); render(); window.scrollTo({ top: 0 });
+    }
+    function record(id) {
+      var t = TESTS[id], st = T(id), R = totals(t, st);
+      var rec = { d: new Date(st.endedAt || Date.now()).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+        e: Math.round(R.e * 100) / 100, p: t.total, ug: R.ungraded, min: Math.max(1, Math.round(((st.endedAt || Date.now()) - st.startAt) / 60000)), timed: !!st.timed };
+      if (st.rec == null) { st.hist.push(rec); st.rec = st.hist.length - 1; } else st.hist[st.rec] = rec;
+    }
+    function submit(id, auto) {
+      var st = T(id);
+      if (st.phase !== "running") return;
+      st.phase = "done"; st.endedAt = st.timed ? Math.min(Date.now(), st.endAt) : Date.now(); st.auto = !!auto;
+      S.filter = "all";
+      record(id); saveNow(); tick();
+      if (S.open && S.cur === id) { render(); window.scrollTo({ top: 0 }); } else if (S.open) renderPicker();
+    }
+
+    /* ---------- render: picker ---------- */
+    function statusOf(t) {
+      var st = S.t[t.id];
+      if (!st || st.phase === "intro") {
+        var last = st && st.hist.length ? st.hist[st.hist.length - 1] : null;
+        return last ? { txt: "Last: " + pct(last.e, last.p) + "%", w: pct(last.e, last.p) } : { txt: "Not started", w: 0 };
+      }
+      if (st.phase === "running") {
+        var n = t.qs.filter(function (q) { return answered(q, st.resp[q.n]); }).length;
+        return { txt: "In progress · " + n + "/" + t.qs.length, w: 0, run: true };
+      }
+      var R = totals(t, st);
+      return { txt: pct(R.e, t.total) + "%" + (R.ungraded ? " · " + R.ungraded + " to grade" : ""), w: pct(R.e, t.total) };
+    }
+    function renderPicker() {
+      var t = TESTS[S.cur], st = S.t[S.cur];
+      var items = DATA.tests.map(function (x) {
+        var s = statusOf(x);
+        return '<button type="button" class="pitem" data-t="' + x.id + '" aria-current="' + (x.id === S.cur) + '"><span class="pt">' + esc(x.name) + '</span>' +
+          '<span class="pm"><span>' + x.qs.length + " Qs · " + fmt(x.total) + " pts</span><span>" + esc(s.txt) + "</span></span>" +
+          '<span class="bar"><i class="g" style="width:' + s.w + '%"></i></span></button>';
+      }).join("");
+      var navHtml = "";
+      if (st && (st.phase === "running" || st.phase === "done")) {
+        var chips = t.qs.map(function (q) {
+          var cls = "";
+          if (st.phase === "running") cls = answered(q, st.resp[q.n]) ? "a" : "";
+          else cls = verdictOf(q, earned(q, st.resp[q.n], st));
+          return '<button type="button" class="chip ' + cls + '" data-jump="' + q.n + '" title="Question ' + q.n + '">' + q.n + "</button>";
+        }).join("");
+        var prev = $(".invnav", picker), wide = !window.matchMedia || window.matchMedia("(min-width: 1001px)").matches;
+        var isOpen = prev && prev.dataset.t === S.cur ? prev.open : wide;
+        navHtml = '<details class="invnav" data-t="' + S.cur + '"' + (isOpen ? " open" : "") + '><summary>Jump to a question</summary><div class="strip">' + chips + "</div>" +
+          (st.phase === "done" ? '<p class="small invkey"><span class="chip g">✓</span> full <span class="chip h">½</span> partial <span class="chip r">✗</span> none <span class="chip u">?</span> grade it</p>' : "") + "</details>";
+      }
+      picker.innerHTML = '<h2>' + esc(DATA.title) + '</h2><p class="tally">Full tests from this season’s invitationals, same questions and answer keys as the tournament papers.</p>' +
+        '<div class="plist">' + items + "</div>" + navHtml;
+    }
+
+    /* ---------- render: one question ---------- */
+    function qHtml(t, q, st, review) {
+      var v = st.resp[q.n];
+      var tags = '<span class="ctag">' + fmt(q.pts) + (q.pts === 1 ? " pt" : " pts") + "</span>" + (q.tb ? '<span class="ctag tb" title="Tiebreaker order ' + q.tb + '">TB ' + q.tb + "</span>" : "");
+      var h = '<p class="prompt"><span class="qn mono">' + q.n + ".</span> " + esc(q.q) + tags + "</p>";
+      if (q.img) h += '<figure class="plate invplate"><img src="' + q.img + '" width="' + q.iw + '" height="' + q.ih + '" loading="lazy" alt="Image for question ' + q.n + '" data-zoom="1"><figcaption>Tap the image to enlarge it</figcaption></figure>';
+      if (q.ref) h += '<p class="small invref">Uses the image in <button type="button" class="linkbtn" data-jump="' + q.ref + '">question ' + q.ref + "</button>.</p>";
+      var dis = review ? " disabled" : "";
+      if (q.type === "mc" || q.type === "tf" || q.type === "multi") {
+        if (q.type === "multi") h += '<p class="subq">(Mark ALL correct answers)</p>';
+        var sel = q.type === "multi" ? (Array.isArray(v) ? v : []) : [v];
+        h += '<div class="opts' + (q.type === "tf" ? " tfopts" : "") + '">' + q.opts.map(function (o, k) {
+          var picked = sel.indexOf(k) >= 0, cls = "";
+          if (review) {
+            var corr = q.type === "multi" ? q.ans.indexOf(k) >= 0 : k === q.ans;
+            if (corr) cls = " right"; else if (picked) cls = " wrong";
+          }
+          return '<button type="button" class="opt' + cls + '" data-n="' + q.n + '" data-v="' + k + '" aria-pressed="' + picked + '"' + dis + '><span class="k">' + (q.type === "tf" ? "" : LET[k] + ")") + "</span><span>" + esc(o) +
+            (review && picked ? ' <span class="small invpick">· your pick</span>' : "") + "</span></button>";
+        }).join("") + "</div>";
+      } else if (q.type === "match") {
+        var mv = Array.isArray(v) ? v : [];
+        h += '<ol class="invmlist" type="A">' + q.opts.map(function (o) { return "<li>" + esc(o) + "</li>"; }).join("") + "</ol>";
+        h += '<div class="invmatch">' + q.items.map(function (it, i) {
+          var cur = mv[i], cls = review ? (cur === q.ans[i] ? " ok" : " miss") : "";
+          return '<label class="lrow' + cls + '"><span class="num">' + (i + 1) + '</span><span class="invmi">' + esc(it) + '</span><select data-n="' + q.n + '" data-i="' + i + '"' + dis + ' aria-label="' + esc(it) + '"><option value="">Pick</option>' +
+            q.opts.map(function (o, k) { return '<option value="' + k + '"' + (cur === k ? " selected" : "") + ">" + LET[k] + "</option>"; }).join("") + "</select></label>";
+        }).join("") + "</div>";
+      } else {
+        if (review) h += answered(q, v) ? '<div class="yours"><span class="small">Your answer</span><div>' + esc(v) + "</div></div>" : '<p class="small">No answer written.</p>';
+        else h += '<textarea data-n="' + q.n + '" aria-label="Answer to question ' + q.n + '" placeholder="Type your answer">' + esc(v || "") + "</textarea>";
+      }
+      if (review) {
+        var g = earned(q, v, st), vd = verdictOf(q, g);
+        var note = q.note ? '<div class="why invnote"><b>Key note:</b> ' + esc(q.note) + "</div>" : "";
+        if (q.type === "fr" && !answered(q, v) && st.self[q.n] == null) {
+          h += '<div class="fb miss"><span class="verdict">Left blank · 0 / ' + fmt(q.pts) + ' pts</span><span class="small">Expected answer</span><div class="model"><b>' + esc(q.exp) + "</b></div>" + note + "</div>";
+        } else if (q.type === "fr") {
+          var steps = [], s = st.self[q.n];
+          for (var x = 0; x <= q.pts + 1e-9; x += 0.5) steps.push(Math.round(x * 10) / 10);
+          h += '<div class="fb ' + (s == null ? "" : { g: "ok", h: "half", r: "miss" }[vd]) + '"' + (s == null ? ' style="background:var(--accent-soft)"' : "") + '><span class="verdict">' +
+            (s == null ? "Grade yourself" : "Self-graded · " + fmt(s) + " / " + fmt(q.pts) + " pts") + '</span><span class="small">Expected answer</span><div class="model"><b>' + esc(q.exp) + "</b></div>" + note +
+            '<div class="btns sgrade"><span class="small">Your points:</span>' + steps.map(function (val) {
+              return '<button type="button" class="chip" data-sg="' + q.n + '" data-val="' + val + '" aria-pressed="' + (s === val) + '">' + fmt(val) + "</button>";
+            }).join("") + "</div></div>";
+        } else {
+          var ansTxt;
+          if (q.type === "multi") ansTxt = q.ans.map(function (k) { return LET[k] + ") " + q.opts[k]; }).join("; ");
+          else if (q.type === "match") ansTxt = q.exp;
+          else ansTxt = (q.type === "tf" ? "" : LET[q.ans] + ") ") + q.opts[q.ans];
+          var lbl = { g: "Correct", h: "Partial credit", r: answered(q, v) ? "Not quite" : "Left blank" }[vd];
+          h += '<div class="fb ' + { g: "ok", h: "half", r: "miss" }[vd] + '"><span class="verdict">' + lbl + " · " + fmt(g) + " / " + fmt(q.pts) + " pts</span>" +
+            (vd === "g" ? "" : "Correct answer: <b>" + esc(ansTxt) + "</b>") + note + "</div>";
+        }
+      }
+      var hide = "";
+      if (review && S.filter !== "all") {
+        var vv = verdictOf(q, earned(q, v, st));
+        if (S.filter === "miss" && vv === "g") hide = " hide";
+        if (S.filter === "grade" && !(q.type === "fr" && answered(q, v))) hide = " hide";
+      }
+      return '<div class="mq' + hide + '" id="iq-' + q.n + '">' + h + "</div>";
+    }
+    function paper(t, st, review) {
+      var html = "", sec = null;
+      t.qs.forEach(function (q) {
+        if (q.sec !== sec) { sec = q.sec; if (!(t.nohead || []).includes(sec)) html += '<h2 class="secth">' + esc(sec) + "</h2>"; }
+        html += qHtml(t, q, st, review);
+      });
+      return html;
+    }
+
+    /* ---------- render: stage ---------- */
+    function counts(t) {
+      var c = { auto: 0, fr: 0, tb: 0 };
+      t.qs.forEach(function (q) { if (q.type === "fr") c.fr++; else c.auto++; if (q.tb) c.tb++; });
+      return c;
+    }
+    function render() {
+      renderPicker();
+      var t = TESTS[S.cur], st = T(S.cur);
+      if (st.phase === "running") return renderRunning(t, st);
+      if (st.phase === "done") return renderDone(t, st);
+      var c = counts(t), hist = st.hist.slice(-5).reverse();
+      stage.innerHTML = '<div class="card qcard"><span class="eyebrow">2027 Invitationals · Div ' + esc(t.div) + "</span><h1 class=\"card-title\">" + esc(t.name) + "</h1>" +
+        "<p>The whole test from this invitational, the same as the uploaded paper: same questions, order, pictures, points and answer key.</p>" +
+        '<ul class="plainlist"><li><b>' + t.qs.length + " questions, " + fmt(t.total) + " points</b> · " + t.secs.join(", ") + "</li>" +
+        "<li>" + c.auto + " are graded for you (multiple choice, true/false, mark-all and matching). Mark-all questions give partial credit.</li>" +
+        (c.fr ? "<li>" + c.fr + " are written answers. After you submit, compare with the tournament’s expected answer and give yourself points.</li>" : "") +
+        (c.tb ? "<li>" + c.tb + " tiebreaker questions are marked TB.</li>" : "") +
+        "<li>Your answers save as you go on this device, even if you close the page.</li></ul>" +
+        '<p class="flabel">Timer</p><div class="seg" id="invTime"><button type="button" data-timed="1" aria-pressed="' + !!st.timed + '">' + t.minutes + "-minute timer</button>" +
+        '<button type="button" data-timed="0" aria-pressed="' + !st.timed + '">No timer</button></div>' +
+        '<div class="btns" style="margin-top:14px"><button type="button" class="btn primary" id="invStart">Start the test</button></div>' +
+        (hist.length ? '<h3 class="parth">Your past attempts</h3><ul class="qlist">' + hist.map(function (m) {
+          return '<li><span class="mk mono">' + pct(m.e, m.p) + '%</span><span class="tx">' + esc(m.d) + " · " + fmt(m.e) + " / " + fmt(m.p) + " pts · " + m.min + " min" + (m.ug ? " · " + m.ug + " not graded" : "") + "</span></li>";
+        }).join("") + "</ul>" : "") + "</div>";
+      $$("#invTime button").forEach(function (b) { b.onclick = function () { st.timed = b.dataset.timed === "1"; saveNow(); render(); }; });
+      $("#invStart").onclick = function () { start(t.id); };
+    }
+    function answeredCount(t, st) { return t.qs.filter(function (q) { return answered(q, st.resp[q.n]); }).length; }
+    function renderRunning(t, st) {
+      stage.innerHTML = '<div class="timerbar"><div><span class="clock mono" id="invClock">' + clockText(st) + '</span> <span class="small">' + (st.timed ? "left" : "elapsed, no timer") +
+        ' · <span id="invCount">' + answeredCount(t, st) + " of " + t.qs.length + '</span> answered</span></div><div class="btns" id="invSub"><button type="button" class="btn primary" data-act="ask">Submit test</button></div></div>' +
+        '<div class="card paper"><div class="paperhead"><span class="eyebrow">' + esc(t.name) + " · Div " + esc(t.div) + '</span><h1 class="card-title">' + esc(t.event) + "</h1>" +
+        '<p class="small">' + t.qs.length + " questions · " + fmt(t.total) + " points" + (st.timed ? " · " + t.minutes + " minutes" : "") + ". Answer in any order. The test submits itself when time runs out.</p></div>" +
+        paper(t, st, false) + '<div class="btns" style="margin-top:18px" id="invSub2"><button type="button" class="btn primary" data-act="ask2">Submit test</button></div></div>';
+      tick();
+    }
+    function askSubmit(box) {
+      var t = TESTS[S.cur], st = T(S.cur), left = t.qs.length - answeredCount(t, st);
+      box.innerHTML = '<span class="small">' + (left ? left + " left blank. " : "") + 'Submit now? You can’t change answers after.</span><button type="button" class="btn primary" data-act="yes">Yes, submit</button><button type="button" class="btn" data-act="no">Keep working</button>';
+    }
+    function renderDone(t, st) {
+      var R = totals(t, st);
+      var box = function (n, l) { return '<div><div class="n mono">' + n + '</div><div class="l">' + esc(l) + "</div></div>"; };
+      var secBoxes = t.secs.map(function (s) { return box(fmt(R.sec[s][0]) + " / " + fmt(R.sec[s][1]), s); }).join("");
+      var used = Math.max(1, Math.round((st.endedAt - st.startAt) / 60000));
+      var seg = [["all", "All questions"], ["miss", "Missed or partial"], ["grade", "My written answers"]].map(function (f) {
+        return '<button type="button" data-filter="' + f[0] + '" aria-pressed="' + (S.filter === f[0]) + '">' + f[1] + "</button>";
+      }).join("");
+      stage.innerHTML = '<div class="card qcard"><span class="eyebrow">' + esc(t.name) + " · results · " + used + " min" + (st.auto ? " (time ran out)" : "") + "</span>" +
+        '<p class="score mono">' + pct(R.e, t.total) + "%</p><p>" + fmt(R.e) + " of " + fmt(t.total) + " points" +
+        (R.tb.length ? " · tiebreakers " + fmt(R.tb.reduce(function (a, x) { return a + (x.g || 0); }, 0)) + " / " + fmt(R.tb.reduce(function (a, x) { return a + x.p; }, 0)) : "") + "</p>" +
+        '<div class="secscore">' + box(fmt(R.auto[0]) + " / " + fmt(R.auto[1]), "Graded for you") + (R.self[1] ? box(fmt(R.self[0]) + " / " + fmt(R.self[1]), "Written (you grade)") : "") + "</div>" +
+        '<div class="secscore">' + secBoxes + "</div>" +
+        (R.ungraded ? '<p class="small" style="margin-top:10px">' + R.ungraded + " written answer" + (R.ungraded === 1 ? "" : "s") + " still need grading. They count as 0 until you give yourself points below.</p>" : "") +
+        '<div class="btns" style="margin-top:12px" id="invAgain"><button type="button" class="btn" data-act="retake">Retake this test</button></div></div>' +
+        '<div class="card paper"><div class="paperhead"><span class="eyebrow">Answer review</span><p class="small" style="margin:4px 0 8px">Green is the correct answer, red is a wrong pick. For written answers, compare with the expected answer and tap your points.</p>' +
+        '<div class="seg" id="invFilter">' + seg + "</div></div>" + paper(t, st, true) + "</div>";
+    }
+    function refreshDone(keepScroll) {
+      var y = window.scrollY; render(); if (keepScroll) window.scrollTo({ top: y });
+    }
+
+    /* ---------- events ---------- */
+    picker.addEventListener("click", function (e) {
+      var p = e.target.closest(".pitem");
+      if (p) { S.cur = p.dataset.t; saveNow(); render(); window.scrollTo({ top: 0 }); return; }
+      var j = e.target.closest("[data-jump]");
+      if (j) jump(+j.dataset.jump);
+    });
+    function jump(n) {
+      var el = document.getElementById("iq-" + n);
+      if (!el) return;
+      if (el.classList.contains("hide")) { S.filter = "all"; refreshDone(false); el = document.getElementById("iq-" + n); }
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.classList.add("flash"); setTimeout(function () { el.classList.remove("flash"); }, 1400);
+    }
+    stage.addEventListener("click", function (e) {
+      var t = TESTS[S.cur], st = T(S.cur);
+      var z = e.target.closest("img[data-zoom]");
+      if (z) { lb.querySelector("img").src = z.src; lb.querySelector("img").alt = z.alt; lb.hidden = false; lb.querySelector(".invlb-x").focus(); return; }
+      var j = e.target.closest("[data-jump]");
+      if (j) { jump(+j.dataset.jump); return; }
+      var a = e.target.closest("[data-act]");
+      if (a) {
+        var act = a.dataset.act;
+        if (act === "ask") askSubmit($("#invSub"));
+        else if (act === "ask2") { window.scrollTo({ top: 0 }); askSubmit($("#invSub")); }
+        else if (act === "yes") submit(S.cur, false);
+        else if (act === "no") $("#invSub").innerHTML = '<button type="button" class="btn primary" data-act="ask">Submit test</button>';
+        else if (act === "retake") $("#invAgain").innerHTML = '<span class="small">Start over? Your answers here are cleared (your score stays in past attempts).</span><button type="button" class="btn primary" data-act="retake-yes">Yes, retake</button><button type="button" class="btn" data-act="retake-no">Cancel</button>';
+        else if (act === "retake-yes") { st.phase = "intro"; st.resp = {}; st.self = {}; st.rec = null; saveNow(); render(); window.scrollTo({ top: 0 }); }
+        else if (act === "retake-no") $("#invAgain").innerHTML = '<button type="button" class="btn" data-act="retake">Retake this test</button>';
+        return;
+      }
+      var f = e.target.closest("[data-filter]");
+      if (f) { S.filter = f.dataset.filter; saveNow(); refreshDone(true); return; }
+      var sg = e.target.closest("[data-sg]");
+      if (sg && st.phase === "done") {
+        st.self[+sg.dataset.sg] = +sg.dataset.val; record(S.cur); saveNow(); refreshDone(true); return;
+      }
+      var o = e.target.closest(".opt[data-n]");
+      if (!o || st.phase !== "running") return;
+      var n = +o.dataset.n, k = +o.dataset.v, q = t.qs.filter(function (x) { return x.n === n; })[0];
+      if (q.type === "multi") {
+        var arr = Array.isArray(st.resp[n]) ? st.resp[n].slice() : [], i = arr.indexOf(k);
+        if (i >= 0) arr.splice(i, 1); else arr.push(k);
+        arr.sort(); st.resp[n] = arr; o.setAttribute("aria-pressed", String(i < 0));
+      } else {
+        st.resp[n] = st.resp[n] === k ? null : k;
+        $$(".opt", o.parentNode).forEach(function (b) { b.setAttribute("aria-pressed", String(+b.dataset.v === st.resp[n])); });
+      }
+      changed(t, st);
+    });
+    function onInput(e) {
+      var t = TESTS[S.cur], st = T(S.cur), el = e.target;
+      if (st.phase !== "running" || !el.dataset || el.dataset.n == null) return;
+      if (e.type === "change" && el.tagName !== "SELECT") return;
+      var n = +el.dataset.n;
+      if (el.tagName === "SELECT") {
+        var arr = Array.isArray(st.resp[n]) ? st.resp[n].slice() : [];
+        arr[+el.dataset.i] = el.value === "" ? null : +el.value; st.resp[n] = arr;
+      } else st.resp[n] = el.value;
+      changed(t, st, el.tagName !== "SELECT");
+    }
+    stage.addEventListener("input", onInput);
+    stage.addEventListener("change", onInput);
+    function changed(t, st, soon) {
+      var c = $("#invCount"); if (c) c.textContent = answeredCount(t, st) + " of " + t.qs.length;
+      if (soon) saveSoon(); else saveNow();
+      renderPicker();
+    }
+    lb.addEventListener("click", function () { lb.hidden = true; });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !lb.hidden) lb.hidden = true; });
+
+    tick();
+    if (S.open) setOpen(true), render();
+  }
+
+  if (typeof window.__apStart === "function") {
+    var orig = window.__apStart;
+    window.__apStart = function () { var r = orig.apply(this, arguments); try { boot(); } catch (e) { console.error(e); } return r; };
+  } else if (window.APDATA) {
+    try { boot(); } catch (e) { console.error(e); }
+  }
+})();
+</script>
 <script>
 (function () {
   var KEY = "ap_team_pass";
