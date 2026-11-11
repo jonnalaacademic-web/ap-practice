@@ -355,6 +355,14 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
 .invlb { position: fixed; inset: 0; z-index: 50; background: rgba(8, 12, 20, 0.88); display: grid; place-items: center; padding: 16px; cursor: zoom-out; }
 .invlb img { max-width: 100%; max-height: calc(100dvh - 90px); width: auto; height: auto; background: #fff; border-radius: 6px; }
 .invlb-x { position: fixed; top: max(12px, env(safe-area-inset-top, 0px)); right: 12px; }
+.invcase { background: var(--accent-soft); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 18px 0 4px; }
+.invcase p { margin: 6px 0 0; }
+.invwarn { margin: 2px 0 10px; padding: 8px 10px; border-left: 3px solid var(--pin); background: var(--miss-bg); border-radius: 4px; font-size: 0.88rem; }
+.invblanks { display: grid; gap: 6px; margin-bottom: 10px; max-width: 640px; }
+.invblanks .lrow { flex-wrap: wrap; }
+.invblanks .invmi { flex: 1 1 200px; min-width: 0; font-weight: 500; }
+.invblanks input { flex: 1 1 160px; max-width: 260px; font-size: 16px; }
+.invfix { flex: 1 1 100%; padding-left: 38px; }
 </style>
 </head><body><div id='appShell' hidden>
 <header class="top">
@@ -553,9 +561,11 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
       if (v == null) return false;
       if (q.type === "multi") return Array.isArray(v) && v.length > 0;
       if (q.type === "match") return Array.isArray(v) && v.some(function (x) { return x != null && x !== ""; });
+      if (q.type === "fill") return Array.isArray(v) && v.some(function (x) { return x != null && String(x).trim() !== ""; });
       if (q.type === "fr") return String(v).trim() !== "";
       return true;
     }
+    function nrm(x) { return String(x == null ? "" : x).toLowerCase().replace(/\s+/g, " ").trim().replace(/[.]+$/, ""); }
     // earned points, or null for a written answer not graded yet
     function earned(q, v, st) {
       if (q.type === "mc" || q.type === "tf") return v === q.ans ? q.pts : 0;
@@ -564,6 +574,12 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
         var right = 0, wrong = 0;
         v.forEach(function (k) { if (q.ans.indexOf(k) >= 0) right++; else wrong++; });
         return Math.max(0, (right - wrong) / q.ans.length) * q.pts;
+      }
+      if (q.type === "fill") {
+        if (!Array.isArray(v)) return 0;
+        var fo = 0;
+        q.ans.forEach(function (a, i) { if (nrm(v[i]) === nrm(a)) fo++; });
+        return (fo / q.ans.length) * q.pts;
       }
       if (q.type === "match") {
         if (!Array.isArray(v)) return 0;
@@ -718,6 +734,7 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
       var tags = '<span class="ctag">' + fmt(q.pts) + (q.pts === 1 ? " pt" : " pts") + "</span>" + (q.tb ? '<span class="ctag tb" title="Tiebreaker order ' + q.tb + '">TB ' + q.tb + "</span>" : "");
       var h = '<p class="prompt"><span class="qn mono">' + q.n + ".</span> " + esc(q.q) + tags + "</p>";
       if (q.img) h += '<figure class="plate invplate"><img src="' + q.img + '" width="' + q.iw + '" height="' + q.ih + '" loading="lazy" alt="Image for question ' + q.n + '" data-zoom="1"><figcaption>Tap the image to enlarge it</figcaption></figure>';
+      if (q.warn) h += '<p class="invwarn"><b>Missing text:</b> ' + esc(q.warn) + "</p>";
       if (q.ref) h += '<p class="small invref">Uses the image in <button type="button" class="linkbtn" data-jump="' + q.ref + '">question ' + q.ref + "</button>.</p>";
       var dis = review ? " disabled" : "";
       if (q.type === "mc" || q.type === "tf" || q.type === "multi") {
@@ -731,6 +748,13 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
           }
           return '<button type="button" class="opt' + cls + '" data-n="' + q.n + '" data-v="' + k + '" aria-pressed="' + picked + '"' + dis + '><span class="k">' + (q.type === "tf" ? "" : LET[k] + ")") + "</span><span>" + esc(o) +
             (review && picked ? ' <span class="small invpick">· your pick</span>' : "") + "</span></button>";
+        }).join("") + "</div>";
+      } else if (q.type === "fill") {
+        var fv = Array.isArray(v) ? v : [];
+        h += '<div class="invblanks">' + q.ans.map(function (a, i) {
+          var cls = review ? (nrm(fv[i]) === nrm(a) ? " ok" : " miss") : "";
+          return '<label class="lrow' + cls + '"><span class="num">' + (i + 1) + '</span><span class="invmi">' + esc(q.labels ? q.labels[i] : "Blank " + (i + 1)) + '</span><input type="text" data-n="' + q.n + '" data-i="' + i + '" value="' + esc(fv[i] || "") + '" autocomplete="off" autocapitalize="none" spellcheck="false"' + dis + ' aria-label="Question ' + q.n + ", " + esc(q.labels ? q.labels[i] : "blank " + (i + 1)) + '">' +
+            (review && cls === " miss" ? '<span class="small invfix">Answer: <b>' + esc(a) + "</b></span>" : "") + "</label>";
         }).join("") + "</div>";
       } else if (q.type === "match") {
         var mv = Array.isArray(v) ? v : [];
@@ -761,6 +785,7 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
           var ansTxt;
           if (q.type === "multi") ansTxt = q.ans.map(function (k) { return LET[k] + ") " + q.opts[k]; }).join("; ");
           else if (q.type === "match") ansTxt = q.exp;
+          else if (q.type === "fill") ansTxt = q.ans.join("; ");
           else ansTxt = (q.type === "tf" ? "" : LET[q.ans] + ") ") + q.opts[q.ans];
           var lbl = { g: "Correct", h: "Partial credit", r: answered(q, v) ? "Not quite" : "Left blank" }[vd];
           h += '<div class="fb ' + { g: "ok", h: "half", r: "miss" }[vd] + '"><span class="verdict">' + lbl + " · " + fmt(g) + " / " + fmt(q.pts) + " pts</span>" +
@@ -777,7 +802,12 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
     }
     function paper(t, st, review) {
       var html = "", sec = null;
+      var lastCase = null;
       t.qs.forEach(function (q) {
+        if (q.case && q.case !== lastCase && t.cases && t.cases[q.case]) {
+          html += '<div class="invcase"><span class="eyebrow">' + esc(t.cases[q.case][0]) + "</span><p>" + esc(t.cases[q.case][1]) + "</p></div>";
+        }
+        lastCase = q.case || null;
         if (q.sec !== sec) { sec = q.sec; if (!(t.nohead || []).includes(sec)) html += '<h2 class="secth">' + esc(sec) + "</h2>"; }
         html += qHtml(t, q, st, review);
       });
@@ -799,7 +829,7 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
       stage.innerHTML = '<div class="card qcard"><span class="eyebrow">2027 Invitationals · Div ' + esc(t.div) + "</span><h1 class=\"card-title\">" + esc(t.name) + "</h1>" +
         "<p>The whole test from this invitational, the same as the uploaded paper: same questions, order, pictures, points and answer key.</p>" +
         '<ul class="plainlist"><li><b>' + t.qs.length + " questions, " + fmt(t.total) + " points</b> · " + t.secs.join(", ") + "</li>" +
-        "<li>" + c.auto + " are graded for you (multiple choice, true/false, mark-all and matching). Mark-all questions give partial credit.</li>" +
+        "<li>" + c.auto + " are graded for you (multiple choice, true/false, mark-all, matching and fill-in-the-blank). Mark-all questions give partial credit.</li>" +
         (c.fr ? "<li>" + c.fr + " are written answers. After you submit, compare with the tournament’s expected answer and give yourself points.</li>" : "") +
         (c.tb ? "<li>" + c.tb + " tiebreaker questions are marked TB.</li>" : "") +
         "<li>Your answers save as you go on this device, even if you close the page.</li></ul>" +
@@ -903,7 +933,10 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
       if (st.phase !== "running" || !el.dataset || el.dataset.n == null) return;
       if (e.type === "change" && el.tagName !== "SELECT") return;
       var n = +el.dataset.n;
-      if (el.tagName === "SELECT") {
+      if (el.tagName === "INPUT" && el.dataset.i != null) {
+        var fa = Array.isArray(st.resp[n]) ? st.resp[n].slice() : [];
+        fa[+el.dataset.i] = el.value; st.resp[n] = fa;
+      } else if (el.tagName === "SELECT") {
         var arr = Array.isArray(st.resp[n]) ? st.resp[n].slice() : [];
         arr[+el.dataset.i] = el.value === "" ? null : +el.value; st.resp[n] = arr;
       } else st.resp[n] = el.value;
