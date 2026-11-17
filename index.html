@@ -380,6 +380,28 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
 .invsvg { --ink: #1d2433; --bg: #ffffff; --muted: #6b7280; --accent-soft: #e8eefc; background: #fff; border-radius: 10px; padding: 8px; }
 .invsvg figcaption { color: #6b7280; }
 #oxStage .invblanks .invmi { flex: 1 1 90px; }
+.invasg { display: inline-block; margin-left: 6px; font-size: 0.68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); vertical-align: 1px; }
+.tmscroll { overflow-x: auto; }
+.tmtable { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.tmtable th, .tmtable td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.tmtable th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); white-space: nowrap; }
+.tmrow { cursor: pointer; } .tmrow:hover { background: var(--accent-soft); }
+.tmstats { display: flex; flex-wrap: wrap; gap: 14px 28px; margin: 10px 0 6px; }
+.tmstat .n { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; line-height: 1.1; }
+.tmstat .l { font-size: 0.8rem; color: var(--muted); }
+.tmbar { display: grid; grid-template-columns: minmax(0, 260px) minmax(60px, 1fr) 46px; gap: 10px; align-items: center; margin: 6px 0; font-size: 0.9rem; }
+.tmbar .tr { height: 10px; border-radius: 5px; background: var(--unseen); overflow: hidden; }
+.tmbar i { display: block; height: 100%; } .tmbar i.hi { background: var(--ok); } .tmbar i.mid { background: #C9922A; } .tmbar i.lo { background: var(--miss); }
+.tmcal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; max-width: 260px; }
+.tmcal span { aspect-ratio: 1; border-radius: 5px; background: var(--unseen); } .tmcal span.d { background: var(--ok); }
+.tmassign { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+.tmah { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; } .tmah .small.mono { margin-left: auto; }
+.tmtests { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.tmtests li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; justify-content: space-between; }
+.tmlate { color: var(--miss); font-weight: 600; }
+.tmpick { display: block; padding: 3px 0; }
+#teamStage .seg { align-self: flex-start; }
+@media (max-width: 640px) { .tmbar { grid-template-columns: 1fr 70px 42px; } }
 </style>
 </head><body><div id='appShell' hidden>
 <header class="top">
@@ -1430,6 +1452,190 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
 
     tick();
     if (S.open) setOpen(true), render();
+  }
+
+  if (typeof window.__apStart === "function") {
+    var orig = window.__apStart;
+    window.__apStart = function () { var r = orig.apply(this, arguments); try { boot(); } catch (e) { console.error(e); } return r; };
+  } else if (window.APDATA) {
+    try { boot(); } catch (e) { console.error(e); }
+  }
+})();
+</script>
+<!--team1--><script>
+/* A&P Practice Stations: "Team" tab (captain view of every member's progress), same idea as the Food Science app.
+   Needs progress backup (SYNC_URL) to be on and a captain key set in the Google script. The key is kept on this device only. */
+(function () {
+  "use strict";
+  var booted = false;
+  function boot() {
+    if (booted) return;
+    var A = window.APDATA; if (!A) return;
+    var URL = String(A.SYNC_URL || "").trim();
+    if (!/^https:\/\/script\.google\.com\/\S+$/.test(URL)) return;   // backup off: no Team tab
+    booted = true;
+
+    var $ = function (s, r) { return (r || document).querySelector(s); };
+    var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+    var fmt = function (x) { return String(Math.round(x * 10) / 10); };
+    var SYS = ["respiratory", "digestive", "immune"], SYSN = { respiratory: "Respiratory", digestive: "Digestive", immune: "Immune" };
+    var CK = "ap-captain";
+    function ckey() { try { return localStorage.getItem(CK) || ""; } catch (e) { return ""; } }
+
+    /* ---------- tab + view ---------- */
+    var anchor = $("#tab-ox") || $("#tab-inv") || $("#tab-mock"), nav = $(".tabs");
+    var tab = document.createElement("button");
+    tab.type = "button"; tab.className = "itab"; tab.id = "tab-team"; tab.setAttribute("role", "tab"); tab.setAttribute("aria-selected", "false"); tab.textContent = "Team";
+    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(tab, anchor.nextSibling); else if (nav) nav.appendChild(tab);
+    var mainEl = $("#main");
+    var view = document.createElement("main");
+    view.className = "wrap layout full"; view.id = "teamMain"; view.hidden = true;
+    view.innerHTML = '<section class="stage"><div class="stage-in" id="teamStage"></div></section>';
+    mainEl.parentNode.insertBefore(view, mainEl.nextSibling);
+    var stage = $("#teamStage");
+    var S = { open: false, rows: null, err: "", loading: false, tried: false, sel: null, sort: "name", at: 0, detail: null };
+
+    function setOpen(on) {
+      S.open = on; view.hidden = !on; mainEl.hidden = on;
+      ["#sysSeg", "#divSeg"].forEach(function (s) { var el = $(s); if (el) el.hidden = on; });
+      tab.setAttribute("aria-selected", String(on));
+      if (on) $$(".tab").forEach(function (b) { b.setAttribute("aria-selected", "false"); });
+    }
+    document.addEventListener("click", function (e) { var o = e.target.closest && e.target.closest(".itab"); if (o && o !== tab && S.open) setOpen(false); }, true);
+    tab.addEventListener("click", function () { setOpen(true); render(); window.scrollTo({ top: 0 }); });
+    $$(".tab").forEach(function (b) { b.addEventListener("click", function () { if (S.open) setOpen(false); }); });
+
+    /* ---------- talk to the Google script ---------- */
+    function call(extra) {
+      return fetch(URL, { method: "POST", body: JSON.stringify(Object.assign({ action: "team", key: ckey() }, extra)) }).then(function (r) { return r.json(); }).then(function (j) {
+        if (!j || !j.ok) throw new Error((j && j.error) || "failed");
+        return j;
+      });
+    }
+    function load(key) {
+      S.loading = true; S.err = ""; S.tried = true; if (S.open) render();
+      if (key) { try { localStorage.setItem(CK, key); } catch (e) {} }
+      return call({}).then(function (j) { S.rows = j.members || []; S.at = Date.now(); }).catch(function (e) {
+        S.rows = null; try { localStorage.removeItem(CK); } catch (x) {}
+        S.err = e.message === "not allowed" ? "That captain key isn’t right, or no captain key is set in the Google script yet."
+          : e.message === "bad code" ? "The Google script is the old version. Update it with the new Code.gs (see Team Setup.md), then try again."
+          : "Couldn’t reach the team Sheet. Check your connection and try again.";
+      }).then(function () { S.loading = false; if (S.open) render(); });
+    }
+
+    /* ---------- helpers ---------- */
+    function ago(ms) { if (!ms) return "—"; var d = Math.floor((Date.now() - ms) / 864e5); return d <= 0 ? "today" : d === 1 ? "yesterday" : d + " days ago"; }
+    function pctTxt(v) { return v === "" || v == null ? "—" : v + "%"; }
+    function nm(m) { return m.name || "(no name)"; }
+    function bar(label, p, n) { var c = p >= 80 ? "hi" : p >= 60 ? "mid" : "lo"; return '<div class="tmbar"><span>' + esc(label) + (n ? ' <span class="small">(' + n + ")</span>" : "") + '</span><span class="tr"><i class="' + c + '" style="width:' + p + '%"></i></span><span class="mono small">' + p + "%</span></div>"; }
+
+    /* accuracy by area and by topic, worked out from the member's saved answers */
+    var TOPIC = null;
+    function topicMap() {
+      if (TOPIC) return TOPIC; TOPIC = {};
+      SYS.forEach(function (s) {
+        try { A.labeling[s].diagrams.forEach(function (d) { TOPIC["L|" + s + "|" + d.id] = d.title; TOPIC["F|" + s + "|" + d.id] = d.title; }); } catch (e) {}
+        try { A.pathology[s].sections.forEach(function (sec) { sec.items.forEach(function (it) { TOPIC["P|" + s + "|" + (it.id || it.n)] = sec.title; }); }); } catch (e) {}
+        try { A.bank[s].sections.forEach(function (sec) { sec.items.forEach(function (it) { TOPIC["Q|" + s + "|" + (it.id || it.n)] = sec.title; }); }); } catch (e) {}
+      });
+      return TOPIC;
+    }
+    function analyze(items) {
+      var kinds = { L: "Labeling", F: "Labeling", P: "Pathology", Q: "Question bank" }, by = {}, tp = {}, T = topicMap();
+      Object.keys(items || {}).forEach(function (k) {
+        var p = k.split("|"), it = items[k], kn = kinds[p[0]]; if (!kn || SYS.indexOf(p[1]) < 0) return;
+        var ok = it[2] ? 1 : 0, key = p[1] + "|" + kn;
+        by[key] = by[key] || [0, 0]; by[key][0] += ok; by[key][1]++;
+        var tt = T[p[0] + "|" + p[1] + "|" + p[2]];
+        if (tt) { var tk = SYSN[p[1]] + ": " + tt; tp[tk] = tp[tk] || [0, 0]; tp[tk][0] += ok; tp[tk][1]++; }
+      });
+      var topics = Object.keys(tp).filter(function (k) { return tp[k][1] >= 3; }).map(function (k) { return { t: k, p: Math.round(tp[k][0] / tp[k][1] * 100), n: tp[k][1] }; }).sort(function (a, b) { return a.p - b.p; });
+      return { by: by, topics: topics };
+    }
+
+    /* ---------- render ---------- */
+    function render() {
+      if (!S.open) return;
+      if (!S.rows && !S.loading && !S.tried && ckey()) { load(); return; }
+      if (S.loading) { stage.innerHTML = '<div class="card empty">Loading the team’s progress…</div>'; return; }
+      if (!S.rows) {
+        stage.innerHTML = '<div class="card"><div class="card-head"><div><span class="eyebrow">Captain only</span><h1 class="card-title">Team progress</h1></div></div>' +
+          '<p class="small">Enter the captain key you set in the Google script. It stays on this device.</p>' + (S.err ? '<p class="sync-msg bad">' + esc(S.err) + "</p>" : "") +
+          '<div class="sync-row"><input id="tmKey" type="password" placeholder="Captain key" autocomplete="off" aria-label="Captain key"><button type="button" class="btn primary" id="tmGo">Show team progress</button></div></div>';
+        return;
+      }
+      var m = S.sel != null ? S.rows.filter(function (r) { return r.code === S.sel; })[0] : null;
+      stage.innerHTML = m ? memberHtml(m) : membersHtml();
+    }
+    function membersHtml() {
+      var n = S.rows.length;
+      var h = '<div class="card"><div class="card-head"><div><span class="eyebrow">Captain view</span><h1 class="card-title">Team progress</h1></div><span class="small">' + n + " member" + (n === 1 ? "" : "s") + " · updated " + esc(new Date(S.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })) + "</span></div>" +
+        '<div class="btns"><button type="button" class="btn small" id="tmRefresh">Refresh</button><button type="button" class="btn quiet small" id="tmLock">Lock</button></div>';
+      if (!n) return h + '<p class="empty">Nobody has backed up yet. Progress appears here after a teammate answers their first question.</p></div>';
+      var by = {
+        name: function (a, b) { return String(nm(a)).localeCompare(String(nm(b))); },
+        saved: function (a, b) { return (b.saved || 0) - (a.saved || 0); },
+        acc: function (a, b) { return (b.acc || 0) - (a.acc || 0); },
+        streak: function (a, b) { return (b.streak || 0) - (a.streak || 0); }
+      };
+      var sorts = [["name", "Name"], ["saved", "Last active"], ["acc", "Accuracy"], ["streak", "Streak"]];
+      h += '<div class="btns" style="margin:10px 0"><span class="small">Sort by</span><div class="seg" id="tmSort" aria-label="Sort members">' + sorts.map(function (s) { return '<button type="button" data-sort="' + s[0] + '" aria-pressed="' + (S.sort === s[0]) + '">' + s[1] + "</button>"; }).join("") + "</div></div>";
+      h += '<div class="tmscroll"><table class="tmtable"><thead><tr><th>Member</th><th>Div</th><th>Last active</th><th>Streak</th><th>Daily sets</th><th>Accuracy</th><th>Labels right</th><th>Last mock</th></tr></thead><tbody>';
+      S.rows.slice().sort(by[S.sort] || by.name).forEach(function (m) {
+        h += '<tr class="tmrow" tabindex="0" data-code="' + esc(m.code) + '"><td><b>' + esc(nm(m)) + '</b><div class="small mono">' + esc(m.code) + "</div></td><td>" + esc(m.level || "") + "</td><td>" + ago(m.saved) + '</td><td class="mono">' + (m.streak || 0) + '</td><td class="mono">' + (m.sets || 0) + '</td><td class="mono">' + pctTxt(m.acc) + '</td><td class="mono">' + (m.labels || 0) + '</td><td class="mono">' + pctTxt(m.lastMock) + "</td></tr>";
+      });
+      return h + '</tbody></table></div><p class="small">Select a member to see accuracy by topic and mock tests.</p></div>';
+    }
+    function memberHtml(m) {
+      var h = '<div class="card"><button type="button" class="btn quiet small" id="tmBack">← All members</button><div class="card-head"><div><span class="eyebrow">Member · ' + (m.level ? "Div " + esc(m.level) + " · " : "") + esc(m.code) + '</span><h1 class="card-title">' + esc(nm(m)) + '</h1></div><span class="small">last active ' + ago(m.saved) + "</span></div>" +
+        '<div class="tmstats">' + [[m.streak || 0, "day streak"], [m.sets || 0, "daily sets"], [pctTxt(m.acc), "accuracy"], [m.labels || 0, "labels right"], [m.mocks || 0, "mock tests"], [pctTxt(m.lastMock), "last mock"]].map(function (x) { return '<div class="tmstat"><div class="n">' + esc(x[0]) + '</div><div class="l">' + x[1] + "</div></div>"; }).join("") + "</div></div>";
+      var d = S.detail && S.detail.code === m.code ? S.detail : null;
+      h += '<div class="card"><h3 class="parth" style="margin-top:0">Accuracy by topic</h3>';
+      if (!d) h += '<p class="empty">Loading…</p>';
+      else if (d.err) h += '<p class="sync-msg bad">' + esc(d.err) + "</p>";
+      else {
+        var an = analyze(d.items);
+        if (!Object.keys(an.by).length) h += '<p class="empty">No answers backed up yet.</p>';
+        else {
+          SYS.forEach(function (s) {
+            var rows = ["Labeling", "Pathology", "Question bank"].filter(function (k) { return an.by[s + "|" + k]; });
+            if (!rows.length) return;
+            h += '<p class="flabel">' + SYSN[s] + "</p>" + rows.map(function (k) { var v = an.by[s + "|" + k]; return bar(k, Math.round(v[0] / v[1] * 100), v[1]); }).join("");
+          });
+          h += '<p class="flabel">Topics, weakest first (last try, at least 3 questions)</p>' + (an.topics.length ? an.topics.map(function (w) { return bar(w.t, w.p, w.n); }).join("") : '<p class="empty">Not enough answers yet.</p>');
+        }
+      }
+      h += "</div>";
+      if (d && (d.mocks || []).length) {
+        h += '<div class="card"><h3 class="parth" style="margin-top:0">Mock tests</h3><ul class="plainlist">' + d.mocks.slice().reverse().map(function (x) {
+          var t = x.t ? new Date(x.t < 1e12 ? x.t * 1000 : x.t).toLocaleDateString() : "";
+          return "<li>" + esc(t) + " · " + fmt(x.e) + " / " + fmt(x.p) + " (" + (x.p ? Math.round(x.e / x.p * 100) : 0) + "%)</li>";
+        }).join("") + "</ul></div>";
+      }
+      return h;
+    }
+    function openMember(code) {
+      S.sel = code; S.detail = null; render(); window.scrollTo({ top: 0 });
+      call({ op: "member", code: code }).then(function (j) { S.detail = { code: code, items: j.items || {}, mocks: j.mocks || [] }; })
+        .catch(function () { S.detail = { code: code, err: "Couldn’t load this member’s answers. Try Refresh." }; }).then(function () { if (S.open && S.sel === code) render(); });
+    }
+
+    /* ---------- events ---------- */
+    stage.addEventListener("click", function (e) {
+      var t = e.target, el;
+      if (t.closest("#tmGo")) { var v = $("#tmKey").value.trim(); if (v) load(v); return; }
+      if (t.closest("#tmRefresh")) { load(); return; }
+      if (t.closest("#tmLock")) { try { localStorage.removeItem(CK); } catch (x) {} S.rows = null; S.tried = true; S.err = ""; S.sel = null; render(); return; }
+      if ((el = t.closest("[data-sort]"))) { S.sort = el.dataset.sort; render(); return; }
+      if ((el = t.closest(".tmrow"))) { openMember(el.dataset.code); return; }
+      if (t.closest("#tmBack")) { S.sel = null; render(); return; }
+    });
+    stage.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter") return;
+      if (e.target.id === "tmKey") { var v = e.target.value.trim(); if (v) load(v); }
+      else if (e.target.classList && e.target.classList.contains("tmrow")) openMember(e.target.dataset.code);
+    });
   }
 
   if (typeof window.__apStart === "function") {
