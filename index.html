@@ -777,7 +777,7 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
     function qHtml(t, q, st, review) {
       var v = st.resp[q.n];
       var tags = '<span class="ctag">' + fmt(q.pts) + (q.pts === 1 ? " pt" : " pts") + "</span>" + (q.tb ? '<span class="ctag tb" title="Tiebreaker order ' + q.tb + '">TB ' + q.tb + "</span>" : "");
-      var h = '<p class="prompt"><span class="qn mono">' + q.n + ".</span> " + esc(q.q) + tags + "</p>";
+      var h = '<p class="prompt"><span class="qn mono">' + q.n + ".</span> " + esc(q.q).replace(/(https?:\/\/[^\s<\]]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>') + tags + "</p>";
       if (q.img) h += '<figure class="plate invplate"><img src="' + q.img + '" width="' + q.iw + '" height="' + q.ih + '" loading="lazy" alt="Image for question ' + q.n + '" data-zoom="1"><figcaption>Tap the image to enlarge it</figcaption></figure>';
       if (q.svg) h += '<figure class="plate invsvg" role="img" aria-label="' + esc(q.alt || "Diagram") + '">' + q.svg + '<figcaption>' + esc(q.cap || "") + '</figcaption></figure>';
       if (q.warn) h += '<p class="invwarn"><b>Missing text:</b> ' + esc(q.warn) + "</p>";
@@ -1229,7 +1229,7 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
     function qHtml(t, q, st, review) {
       var v = st.resp[q.n];
       var tags = '<span class="ctag">' + fmt(q.pts) + (q.pts === 1 ? " pt" : " pts") + "</span>" + (q.tb ? '<span class="ctag tb" title="Tiebreaker order ' + q.tb + '">TB ' + q.tb + "</span>" : "");
-      var h = '<p class="prompt"><span class="qn mono">' + q.n + ".</span> " + esc(q.q) + tags + "</p>";
+      var h = '<p class="prompt"><span class="qn mono">' + q.n + ".</span> " + esc(q.q).replace(/(https?:\/\/[^\s<\]]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>') + tags + "</p>";
       if (q.img) h += '<figure class="plate invplate"><img src="' + q.img + '" width="' + q.iw + '" height="' + q.ih + '" loading="lazy" alt="Image for question ' + q.n + '" data-zoom="1"><figcaption>Tap the image to enlarge it</figcaption></figure>';
       if (q.svg) h += '<figure class="plate invsvg" role="img" aria-label="' + esc(q.alt || "Diagram") + '">' + q.svg + '<figcaption>' + esc(q.cap || "") + '</figcaption></figure>';
       if (q.warn) h += '<p class="invwarn"><b>Missing text:</b> ' + esc(q.warn) + "</p>";
