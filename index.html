@@ -1040,6 +1040,16 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     var S = { cur: DATA.tests[0].id, open: false, filter: "all", t: {} };
     try { var saved = JSON.parse(localStorage.getItem(SK) || "null"); if (saved && saved.t) S = Object.assign(S, saved); } catch (e) {}
     if (!TESTS[S.cur]) S.cur = DATA.tests[0].id;
+    function TV(id) {
+      var t = TESTS[id], st = S.t[id];
+      if (!st || !st.only || !st.only.length) return t;
+      var o = Object.assign({}, t);
+      o.qs = t.qs.filter(function (q) { return st.only.indexOf(q.n) >= 0; });
+      o.total = o.qs.reduce(function (a, q) { return a + q.pts; }, 0);
+      o.name = t.name + " · missed only";
+      o.secs = t.secs.filter(function (s) { return o.qs.some(function (q) { return q.sec === s; }); });
+      return o;
+    }
     function T(id) {
       if (!S.t[id]) S.t[id] = { phase: "intro", timed: true, resp: {}, self: {}, hist: [] };
       return S.t[id];
@@ -1167,14 +1177,15 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     /* ---------- actions ---------- */
     function start(id) {
       var st = T(id);
-      st.phase = "running"; st.resp = {}; st.self = {}; st.startAt = Date.now();
+      st.phase = "running"; st.only = null; st.resp = {}; st.self = {}; st.startAt = Date.now();
       st.endAt = st.startAt + TESTS[id].minutes * 60000; st.endedAt = null; st.rec = null;
       saveNow(); render(); window.scrollTo({ top: 0 });
     }
     function record(id) {
-      var t = TESTS[id], st = T(id), R = totals(t, st);
+      var t = TV(id), st = T(id), R = totals(t, st);
       var rec = { d: new Date(st.endedAt || Date.now()).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
         e: Math.round(R.e * 100) / 100, p: t.total, ug: R.ungraded, min: Math.max(1, Math.round(((st.endedAt || Date.now()) - st.startAt) / 60000)), timed: !!st.timed };
+      if (st.only && st.only.length) return;
       if (st.rec == null) { st.hist.push(rec); st.rec = st.hist.length - 1; } else st.hist[st.rec] = rec;
     }
     function submit(id, auto) {
@@ -1188,6 +1199,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
 
     /* ---------- render: picker ---------- */
     function statusOf(t) {
+      t = TV(t.id);
       var st = S.t[t.id];
       if (!st || st.phase === "intro") {
         var last = st && st.hist.length ? st.hist[st.hist.length - 1] : null;
@@ -1201,7 +1213,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       return { txt: pct(R.e, t.total) + "%" + (R.ungraded ? " · " + R.ungraded + " to grade" : ""), w: pct(R.e, t.total) };
     }
     function renderPicker() {
-      var t = TESTS[S.cur], st = S.t[S.cur];
+      var t = TV(S.cur), st = S.t[S.cur];
       var prevOpen = {};
       $$("details.oxg", picker).forEach(function (d) { prevOpen[d.dataset.g] = d.open; });
       var curGrp = (TESTS[S.cur] && TESTS[S.cur].grp) || "";
@@ -1329,7 +1341,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     }
     function render() {
       renderPicker();
-      var t = TESTS[S.cur], st = T(S.cur);
+      var t = TV(S.cur), st = T(S.cur);
       if (st.phase === "running") return renderRunning(t, st);
       if (st.phase === "done") return renderDone(t, st);
       var c = counts(t), hist = st.hist.slice(-5).reverse();
@@ -1359,11 +1371,12 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       tick();
     }
     function askSubmit(box) {
-      var t = TESTS[S.cur], st = T(S.cur), left = t.qs.length - answeredCount(t, st);
+      var t = TV(S.cur), st = T(S.cur), left = t.qs.length - answeredCount(t, st);
       box.innerHTML = '<span class="small">' + (left ? left + " left blank. " : "") + 'Submit now? You can’t change answers after.</span><button type="button" class="btn primary" data-act="yes">Yes, submit</button><button type="button" class="btn" data-act="no">Keep working</button>';
     }
     function renderDone(t, st) {
       var R = totals(t, st);
+      var nMiss = t.qs.filter(function (q) { var g = earned(q, st.resp[q.n], st); return g != null && g < q.pts - 1e-9; }).length;
       var box = function (n, l) { return '<div><div class="n mono">' + n + '</div><div class="l">' + esc(l) + "</div></div>"; };
       var secBoxes = t.secs.map(function (s) { return box(fmt(R.sec[s][0]) + " / " + fmt(R.sec[s][1]), s); }).join("");
       var used = Math.max(1, Math.round((st.endedAt - st.startAt) / 60000));
@@ -1376,7 +1389,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
         '<div class="secscore">' + box(fmt(R.auto[0]) + " / " + fmt(R.auto[1]), "Graded for you") + (R.self[1] ? box(fmt(R.self[0]) + " / " + fmt(R.self[1]), "Written (you grade)") : "") + "</div>" +
         '<div class="secscore">' + secBoxes + "</div>" +
         (R.ungraded ? '<p class="small" style="margin-top:10px">' + R.ungraded + " written answer" + (R.ungraded === 1 ? "" : "s") + " still need grading. They count as 0 until you give yourself points below.</p>" : "") +
-        '<div class="btns" style="margin-top:12px" id="oxAgain"><button type="button" class="btn" data-act="retake">Retake this test</button></div></div>' +
+        '<div class="btns" style="margin-top:12px" id="oxAgain">' + (nMiss ? '<button type="button" class="btn primary" data-act="retake-missed">Retake missed only (' + nMiss + ')</button>' : "") + '<button type="button" class="btn" data-act="retake">' + (st.only ? "Retake the whole test" : "Retake this test") + '</button></div></div>' +
         '<div class="card paper"><div class="paperhead"><span class="eyebrow">Answer review</span><p class="small" style="margin:4px 0 8px">Green is the correct answer, red is a wrong pick. For written answers, compare with the expected answer and tap your points.</p>' +
         '<div class="seg" id="oxFilter">' + seg + "</div></div>" + paper(t, st, true) + "</div>";
     }
@@ -1399,7 +1412,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       el.classList.add("flash"); setTimeout(function () { el.classList.remove("flash"); }, 1400);
     }
     stage.addEventListener("click", function (e) {
-      var t = TESTS[S.cur], st = T(S.cur);
+      var t = TV(S.cur), st = T(S.cur);
       var z = e.target.closest("img[data-zoom]");
       if (z) { lb.querySelector("img").src = z.src; lb.querySelector("img").alt = z.alt; lb.hidden = false; lb.querySelector(".invlb-x").focus(); return; }
       var j = e.target.closest("[data-jump]");
@@ -1412,8 +1425,17 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
         else if (act === "yes") submit(S.cur, false);
         else if (act === "no") $("#oxSub").innerHTML = '<button type="button" class="btn primary" data-act="ask">Submit test</button>';
         else if (act === "retake") $("#oxAgain").innerHTML = '<span class="small">Start over? Your answers here are cleared (your score stays in past attempts).</span><button type="button" class="btn primary" data-act="retake-yes">Yes, retake</button><button type="button" class="btn" data-act="retake-no">Cancel</button>';
-        else if (act === "retake-yes") { st.phase = "intro"; st.resp = {}; st.self = {}; st.rec = null; saveNow(); render(); window.scrollTo({ top: 0 }); }
-        else if (act === "retake-no") $("#oxAgain").innerHTML = '<button type="button" class="btn" data-act="retake">Retake this test</button>';
+        else if (act === "retake-missed") {
+          var ms = t.qs.filter(function (q) { var g = earned(q, st.resp[q.n], st); return g != null && g < q.pts - 1e-9; }).map(function (q) { return q.n; });
+          if (ms.length) {
+            var full = TESTS[S.cur];
+            st.only = ms; st.phase = "running"; st.resp = {}; st.self = {}; st.startAt = Date.now();
+            st.endAt = st.startAt + Math.max(5, Math.round(full.minutes * ms.length / full.qs.length)) * 60000; st.endedAt = null; st.rec = null;
+            saveNow(); render(); window.scrollTo({ top: 0 });
+          }
+        }
+        else if (act === "retake-yes") { st.only = null; st.phase = "intro"; st.resp = {}; st.self = {}; st.rec = null; saveNow(); render(); window.scrollTo({ top: 0 }); }
+        else if (act === "retake-no") render();
         return;
       }
       var f = e.target.closest("[data-filter]");
@@ -1436,7 +1458,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       changed(t, st);
     });
     function onInput(e) {
-      var t = TESTS[S.cur], st = T(S.cur), el = e.target;
+      var t = TV(S.cur), st = T(S.cur), el = e.target;
       if (st.phase !== "running" || !el.dataset || el.dataset.n == null) return;
       if (e.type === "change" && el.tagName !== "SELECT") return;
       var n = +el.dataset.n;
