@@ -402,6 +402,9 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
 .tmpick { display: block; padding: 3px 0; }
 #teamStage .seg { align-self: flex-start; }
 @media (max-width: 640px) { .tmbar { grid-template-columns: 1fr 70px 42px; } }
+details.oxg { margin: 10px 0; border: 1px solid var(--line, rgba(128,128,128,.3)); border-radius: 10px; padding: 0 10px 8px; }
+details.oxg > summary { cursor: pointer; padding: 10px 2px; font-size: 0.82rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing: 0; font-weight: 400; }
 </style>
 </head><body><div id='appShell' hidden>
 <header class="top">
@@ -1199,14 +1202,20 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
     }
     function renderPicker() {
       var t = TESTS[S.cur], st = S.t[S.cur];
-      var lastGrp = null;
-      var items = DATA.tests.map(function (x) {
+      var prevOpen = {};
+      $$("details.oxg", picker).forEach(function (d) { prevOpen[d.dataset.g] = d.open; });
+      var curGrp = (TESTS[S.cur] && TESTS[S.cur].grp) || "";
+      var order = [], byG = {};
+      DATA.tests.map(function (x) {
         var s = statusOf(x);
-        var gh = x.grp && x.grp !== lastGrp ? '<h3 class="invgrp">' + esc(x.grp) + "</h3>" : "";
-        lastGrp = x.grp || lastGrp;
-        return gh + '<button type="button" class="pitem" data-t="' + x.id + '" aria-current="' + (x.id === S.cur) + '"><span class="pt">' + esc(x.name) + '</span>' +
+        var gk = x.grp || ""; if (!byG[gk]) { byG[gk] = []; order.push(gk); }
+        byG[gk].push('<button type="button" class="pitem" data-t="' + x.id + '" aria-current="' + (x.id === S.cur) + '"><span class="pt">' + esc(x.name) + '</span>' +
           '<span class="pm"><span>' + x.qs.length + " Qs · " + fmt(x.total) + " pts</span><span>" + esc(s.txt) + "</span></span>" +
-          '<span class="bar"><i class="g" style="width:' + s.w + '%"></i></span></button>';
+          '<span class="bar"><i class="g" style="width:' + s.w + '%"></i></span></button>');
+      });
+      var items = order.map(function (g) {
+        var op = g in prevOpen ? prevOpen[g] : g === curGrp;
+        return '<details class="oxg" data-g="' + esc(g) + '"' + (op ? " open" : "") + '><summary>' + esc(g) + ' <span class="oxgc">' + byG[g].length + ' quizzes</span></summary>' + byG[g].join("") + "</details>";
       }).join("");
       var navHtml = "";
       if (st && (st.phase === "running" || st.phase === "done")) {
