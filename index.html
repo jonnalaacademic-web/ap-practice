@@ -1218,6 +1218,35 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     view.innerHTML = '<aside class="picker" id="oxPicker" aria-label="Choose a test"></aside><section class="stage"><div class="stage-in" id="oxStage"></div></section>';
     mainEl.parentNode.insertBefore(view, mainEl.nextSibling);
     var picker = $("#oxPicker"), stage = $("#oxStage");
+    picker.addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("[data-bk]") : null; if (!b) return;
+      if (b.dataset.bk === "load") { $("#oxBkFile").click(); return; }
+      try {
+        saveNow();
+        var blob = new Blob([JSON.stringify({ v: 1, saved: new Date().toISOString(), t: S.t })], { type: "application/json" });
+        var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "openstax-results.json";
+        document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+        $("#oxBkMsg").textContent = "Saved a copy as openstax-results.json.";
+      } catch (er) { $("#oxBkMsg").textContent = "Could not save a file here."; }
+    });
+    picker.addEventListener("change", function (e) {
+      if (e.target.id !== "oxBkFile" || !e.target.files || !e.target.files[0]) return;
+      var rd = new FileReader();
+      rd.onload = function () {
+        try {
+          var d = JSON.parse(rd.result), n = 0;
+          if (!d || !d.t) throw new Error("bad");
+          Object.keys(d.t).forEach(function (id) {
+            if (!TESTS[id]) return;
+            var cur = S.t[id], inc = d.t[id];
+            if (!cur || cur.phase === "intro" || Object.keys(inc.resp || {}).length >= Object.keys(cur.resp || {}).length) { S.t[id] = inc; n++; }
+          });
+          saveNow(); reconcile(); renderPicker(); render();
+          $("#oxBkMsg").textContent = "Loaded results for " + n + " quiz" + (n === 1 ? "" : "zes") + ".";
+        } catch (er) { $("#oxBkMsg").textContent = "That file is not an OpenStax results file."; }
+      };
+      rd.readAsText(e.target.files[0]); e.target.value = "";
+    });
     var lb = document.createElement("div");
     lb.className = "invlb"; lb.hidden = true; lb.setAttribute("role", "dialog"); lb.setAttribute("aria-label", "Enlarged image");
     lb.innerHTML = '<img alt=""><button type="button" class="btn invlb-x">Close</button>';
@@ -1335,8 +1364,18 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
         navHtml = '<details class="invnav" data-t="' + S.cur + '"' + (isOpen ? " open" : "") + '><summary>Jump to a question</summary><div class="strip">' + chips + "</div>" +
           (st.phase === "done" ? '<p class="small invkey"><span class="chip g">✓</span> full <span class="chip h">½</span> partial <span class="chip r">✗</span> none <span class="chip u">?</span> grade it</p>' : "") + "</details>";
       }
+      var pbk = $(".oxbk", picker), bkOpen = pbk ? pbk.open : false;
+      var rows = DATA.tests.filter(function (x) { var q = S.t[x.id]; return q && q.phase && q.phase !== "intro"; }).map(function (x) {
+        var q = S.t[x.id], h = q.hist && q.hist.length ? q.hist[q.hist.length - 1] : null;
+        return "<li><b>" + esc(x.grp.replace(/^Chapter /, "Ch ").split(" ·")[0] + " " + x.short) + "</b>: " + q.phase + ", " + Object.keys(q.resp || {}).length + " answers saved" + (h ? ", scored " + pct(h.e, h.p) + "% on " + esc(h.d) : "") + "</li>";
+      }).join("");
+      var bkHtml = '<details class="oxbk"' + (bkOpen ? " open" : "") + ' style="margin-top:14px"><summary>Saved results, backup and restore</summary>' +
+        '<p class="small">Results are saved in this browser only. Save them to a file to keep a copy or move them to another device.</p>' +
+        '<div class="btns"><button type="button" class="btn" data-bk="save">Save results to a file</button><button type="button" class="btn" data-bk="load">Load results from a file</button>' +
+        '<input type="file" accept=".json,application/json" id="oxBkFile" hidden></div><p class="small" id="oxBkMsg" role="status"></p>' +
+        '<ul class="small" style="padding-left:18px;margin:6px 0">' + (rows || "<li>Nothing saved yet.</li>") + "</ul></details>";
       picker.innerHTML = '<h2>' + esc(DATA.title) + '</h2><p class="tally">Quizzes for each section of the OpenStax A&amp;P 2e chapters on the immune, respiratory and digestive systems.</p>' +
-        '<div class="plist">' + items + "</div>" + navHtml;
+        '<div class="plist">' + items + "</div>" + navHtml + bkHtml;
     }
 
     /* ---------- render: one question ---------- */
