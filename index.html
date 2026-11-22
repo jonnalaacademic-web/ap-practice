@@ -1058,6 +1058,38 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     function saveNow() { clearTimeout(saveTimer); saveTimer = null; try { localStorage.setItem(SK, JSON.stringify(S)); } catch (e) {} }
     function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); }
     window.addEventListener("pagehide", saveNow);
+    function migrateOld() {
+      var ch = false;
+      DATA.tests.forEach(function (t) {
+        var st = S.t[t.id];
+        if (!/^ox23_/.test(t.id) || !st || st.mig || st.phase !== "done" || st.only || st.sc) return;
+        var mapped = {}, any = false;
+        t.qs.forEach(function (q) {
+          var v = st.resp[q.n]; if (v == null) return;
+          if (q.perm && q.type === "mc" && typeof v === "number") { mapped[q.n] = q.perm.indexOf(v); any = true; }
+          else if (q.perm && q.type === "multi" && Array.isArray(v)) { mapped[q.n] = v.map(function (k) { return q.perm.indexOf(k); }).sort(); any = true; }
+          else mapped[q.n] = v;
+        });
+        st.mig = 1; ch = true;
+        if (!any) return;
+        var dummy = { self: {}, phase: "x" };
+        function auto(resp) { var s = 0; t.qs.forEach(function (q) { if (q.type !== "fr") s += earned(q, resp[q.n], dummy) || 0; }); return s; }
+        var a0 = auto(st.resp), a1 = auto(mapped), use = false;
+        var lh = st.hist && st.hist.length ? st.hist[st.rec != null && st.hist[st.rec] ? st.rec : st.hist.length - 1] : null;
+        if (lh && lh.p) {
+          var sf = 0; t.qs.forEach(function (q) { if (q.type === "fr" && st.self[q.n] != null) sf += st.self[q.n]; });
+          var tg = lh.e * (t.total / lh.p) - sf;
+          use = Math.abs(a1 - tg) < Math.abs(a0 - tg);
+        } else use = a1 > a0;
+        if (use) {
+          st.resp = mapped; var sc = {};
+          t.qs.forEach(function (q) { if (q.type !== "fr") sc[q.n] = earned(q, mapped[q.n], dummy) || 0; });
+          st.sc = sc; delete st.fz;
+        }
+      });
+      if (ch) saveNow();
+    }
+    migrateOld();
     document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") saveNow(); });
 
     /* ---------- grading ---------- */
