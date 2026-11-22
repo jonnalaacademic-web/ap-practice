@@ -1074,6 +1074,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     function nrm(x) { return String(x == null ? "" : x).toLowerCase().replace(/\s+/g, " ").trim().replace(/[.]+$/, ""); }
     // earned points, or null for a written answer not graded yet
     function earned(q, v, st) {
+      if (st && st.phase === "done" && st.sc && q.type !== "fr" && st.sc[q.n] != null) return st.sc[q.n];
       if (q.type === "mc" || q.type === "tf") return v === q.ans ? q.pts : 0;
       if (q.type === "multi") {
         if (!Array.isArray(v) || !v.length) return 0;
@@ -1111,6 +1112,14 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
         if (q.tb) R.tb.push({ n: q.n, tb: q.tb, g: g, p: q.pts });
       });
       R.tb.sort(function (a, b) { return a.tb - b.tb; });
+      if (st.phase === "done" && !st.sc && !st.only && st.hist && st.hist.length) {
+        if (!st.fz) {
+          var lh = st.hist[st.rec != null && st.hist[st.rec] ? st.rec : st.hist.length - 1];
+          st.fz = { a: Math.max(0, lh.e * (lh.p ? t.total / lh.p : 1) - R.self[0]) };
+          saveSoon();
+        }
+        R.auto[0] = st.fz.a; R.e = st.fz.a + R.self[0];
+      }
       return R;
     }
     function verdictOf(q, g) {
@@ -1177,7 +1186,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     /* ---------- actions ---------- */
     function start(id) {
       var st = T(id);
-      st.phase = "running"; st.only = null; st.resp = {}; st.self = {}; st.startAt = Date.now();
+      st.phase = "running"; st.only = null; st.sc = null; st.resp = {}; st.self = {}; st.startAt = Date.now();
       st.endAt = st.startAt + TESTS[id].minutes * 60000; st.endedAt = null; st.rec = null;
       saveNow(); render(); window.scrollTo({ top: 0 });
     }
@@ -1191,6 +1200,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     function submit(id, auto) {
       var st = T(id);
       if (st.phase !== "running") return;
+      st.sc = null; var scn = {}; TV(id).qs.forEach(function (q) { if (q.type !== "fr") scn[q.n] = earned(q, st.resp[q.n], st); }); st.sc = scn;
       st.phase = "done"; st.endedAt = st.timed ? Math.min(Date.now(), st.endAt) : Date.now(); st.auto = !!auto;
       S.filter = "all";
       record(id); saveNow(); tick();
@@ -1201,6 +1211,13 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     function statusOf(t) {
       t = TV(t.id);
       var st = S.t[t.id];
+      if (st && st.only && st.only.length && st.hist.length) {
+        var fl = st.hist[st.hist.length - 1], fp = pct(fl.e, fl.p), tail;
+        if (st.phase === "running") tail = "missed retake in progress";
+        else if (st.phase === "done") tail = "missed retake " + pct(totals(t, st).e, t.total) + "%";
+        else tail = "";
+        return { txt: fp + "% full test" + (tail ? " · " + tail : ""), w: fp };
+      }
       if (!st || st.phase === "intro") {
         var last = st && st.hist.length ? st.hist[st.hist.length - 1] : null;
         return last ? { txt: "Last: " + pct(last.e, last.p) + "%", w: pct(last.e, last.p) } : { txt: "Not started", w: 0 };
@@ -1384,7 +1401,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
         return '<button type="button" data-filter="' + f[0] + '" aria-pressed="' + (S.filter === f[0]) + '">' + f[1] + "</button>";
       }).join("");
       stage.innerHTML = '<div class="card qcard"><span class="eyebrow">' + esc(t.name) + " · results · " + used + " min" + (st.auto ? " (time ran out)" : "") + "</span>" +
-        '<p class="score mono">' + pct(R.e, t.total) + "%</p><p>" + fmt(R.e) + " of " + fmt(t.total) + " points" +
+        '<p class="score mono">' + pct(R.e, t.total) + "%</p><p>" + fmt(R.e) + " of " + fmt(t.total) + " points" + (st.only && st.hist.length ? " · your full-test score stays " + pct(st.hist[st.hist.length - 1].e, st.hist[st.hist.length - 1].p) + "%" : "") +
         (R.tb.length ? " · tiebreakers " + fmt(R.tb.reduce(function (a, x) { return a + (x.g || 0); }, 0)) + " / " + fmt(R.tb.reduce(function (a, x) { return a + x.p; }, 0)) : "") + "</p>" +
         '<div class="secscore">' + box(fmt(R.auto[0]) + " / " + fmt(R.auto[1]), "Graded for you") + (R.self[1] ? box(fmt(R.self[0]) + " / " + fmt(R.self[1]), "Written (you grade)") : "") + "</div>" +
         '<div class="secscore">' + secBoxes + "</div>" +
@@ -1429,7 +1446,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
           var ms = t.qs.filter(function (q) { var g = earned(q, st.resp[q.n], st); return g != null && g < q.pts - 1e-9; }).map(function (q) { return q.n; });
           if (ms.length) {
             var full = TESTS[S.cur];
-            st.only = ms; st.phase = "running"; st.resp = {}; st.self = {}; st.startAt = Date.now();
+            st.only = ms; st.phase = "running"; st.sc = null; st.resp = {}; st.self = {}; st.startAt = Date.now();
             st.endAt = st.startAt + Math.max(5, Math.round(full.minutes * ms.length / full.qs.length)) * 60000; st.endedAt = null; st.rec = null;
             saveNow(); render(); window.scrollTo({ top: 0 });
           }
