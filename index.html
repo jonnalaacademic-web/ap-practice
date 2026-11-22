@@ -1202,6 +1202,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       if (!cbOn()) return;
       if (cb.busy) { cb.timer = setTimeout(cbPush, 3000); return; }
       if (!cbHas()) return;
+      var pc = practiceCode(); if (pc && cb.meta.code !== pc) { cb.meta.code = pc; cb.meta.isNew = true; cb.meta.at = 0; cbSave(); }
       if (!cb.meta.code) { cb.meta.code = practiceCode() || cbNewCode(); cb.meta.isNew = true; cbSave(); }
       cb.busy = true; cb.state = "saving"; cbPaint();
       var d = cbData(), isNew = cb.meta.isNew;
@@ -1811,9 +1812,16 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     function load(key) {
       S.loading = true; S.err = ""; S.tried = true; if (S.open) render();
       if (key) { try { localStorage.setItem(CK, key); } catch (e) {} }
-      return call({}).then(function (j) { S.rows = j.members || []; S.ox = {}; (j.ox || []).forEach(function (o) { S.ox[o.code] = o; });
-        var have = {}; S.rows.forEach(function (m) { have[m.code] = 1; });
-        (j.ox || []).forEach(function (o) { if (!have[o.code]) S.rows.push({ code: o.code, name: o.name, level: "", saved: o.saved, streak: 0, sets: 0, points: 0, acc: "", labels: 0, mocks: 0, lastMock: "", oxOnly: true }); });
+      return call({}).then(function (j) { S.rows = j.members || []; S.ox = {}; var oxs = j.ox || [], nk = function (x) { return String(x || "").trim().toLowerCase(); };
+        function better(a, b) { return !a || (b.done || 0) > (a.done || 0) || ((b.done || 0) === (a.done || 0) && (b.saved || 0) > (a.saved || 0)); }
+        var byName = {}; S.rows.forEach(function (m) { if (nk(m.name)) byName[nk(m.name)] = m; });
+        var extra = {};
+        oxs.forEach(function (o) {
+          var m = S.rows.filter(function (r) { return r.code === o.code; })[0] || byName[nk(o.name)];
+          if (m) { if (better(S.ox[m.code], o)) { S.ox[m.code] = o; m.oxCode = o.code; } return; }
+          var k = nk(o.name) || o.code; if (!extra[k] || better(extra[k], o)) extra[k] = o;
+        });
+        Object.keys(extra).forEach(function (k) { var o = extra[k]; S.ox[o.code] = o; S.rows.push({ code: o.code, name: o.name, level: "", saved: o.saved, streak: 0, sets: 0, points: 0, acc: "", labels: 0, mocks: 0, lastMock: "", oxOnly: true }); });
         S.at = Date.now(); }).catch(function (e) {
         S.rows = null; try { localStorage.removeItem(CK); } catch (x) {}
         S.err = e.message === "not allowed" ? "That captain key isn’t right, or no captain key is set in the Google script yet."
@@ -1930,7 +1938,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     }
     function openMember(code) {
       S.sel = code; S.detail = null; S.oxd = null; render(); window.scrollTo({ top: 0 });
-      call({ op: "oxmember", code: code }).then(function (j) { S.oxd = { code: code, tests: j.tests || {} }; })
+      call({ op: "oxmember", code: ((S.rows || []).filter(function (r) { return r.code === code; })[0] || {}).oxCode || code }).then(function (j) { S.oxd = { code: code, tests: j.tests || {} }; })
         .catch(function () { S.oxd = { code: code, err: "OpenStax results need the updated Google script (see the setup steps)." }; }).then(function () { if (S.open && S.sel === code) render(); });
       call({ op: "member", code: code }).then(function (j) { S.detail = { code: code, items: j.items || {}, mocks: j.mocks || [] }; })
         .catch(function () { S.detail = { code: code, err: "Couldn’t load this member’s answers. Try Refresh." }; }).then(function () { if (S.open && S.sel === code) render(); });
