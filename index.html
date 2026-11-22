@@ -1055,7 +1055,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       return S.t[id];
     }
     var saveTimer = null;
-    function saveNow() { clearTimeout(saveTimer); saveTimer = null; try { localStorage.setItem(SK, JSON.stringify(S)); } catch (e) {} }
+    function saveNow() { try { snapAll(); } catch (e) {} clearTimeout(saveTimer); saveTimer = null; try { localStorage.setItem(SK, JSON.stringify(S)); } catch (e) {} }
     function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); }
     window.addEventListener("pagehide", saveNow);
     function migrateOld() {
@@ -1090,6 +1090,50 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       if (ch) saveNow();
     }
     migrateOld();
+    function snapAll() {
+      DATA.tests.forEach(function (t) {
+        var st = S.t[t.id];
+        if (!st || !st.resp || st.phase === "intro") return;
+        var tx = {}, sx = {};
+        t.qs.forEach(function (q) {
+          var v = st.resp[q.n], k = q.q;
+          if (st.self && st.self[q.n] != null) sx[k] = st.self[q.n];
+          if (v == null) return;
+          if ((q.type === "mc" || q.type === "tf") && typeof v === "number") { if (q.opts[v] != null) tx[k] = q.opts[v]; }
+          else if (q.type === "multi" && Array.isArray(v)) tx[k] = v.map(function (i) { return q.opts[i]; });
+          else if (q.type === "match" && Array.isArray(v)) tx[k] = v.map(function (i) { return typeof i === "number" ? q.opts[i] : null; });
+          else if (q.type === "fill" || q.type === "fr") tx[k] = v;
+        });
+        st.tx = tx; st.sx = sx;
+      });
+    }
+    function reconcile() {
+      var ch = false;
+      DATA.tests.forEach(function (t) {
+        var st = S.t[t.id];
+        if (!st || !st.tx || st.only || (st.phase !== "done" && st.phase !== "running")) return;
+        var nr = {}, ns = {};
+        t.qs.forEach(function (q) {
+          var k = q.q, x = st.tx[k];
+          if (st.sx && st.sx[k] != null) ns[q.n] = st.sx[k];
+          if (x === undefined) return;
+          if (q.type === "mc" || q.type === "tf") { var i = q.opts.indexOf(x); if (i >= 0) nr[q.n] = i; }
+          else if (q.type === "multi") nr[q.n] = x.map(function (z) { return q.opts.indexOf(z); }).filter(function (i) { return i >= 0; }).sort();
+          else if (q.type === "match") nr[q.n] = x.map(function (z) { var i = q.opts.indexOf(z); return i >= 0 ? i : ""; });
+          else nr[q.n] = x;
+        });
+        if (JSON.stringify(nr) !== JSON.stringify(st.resp) || JSON.stringify(ns) !== JSON.stringify(st.self)) {
+          st.resp = nr; st.self = ns; ch = true;
+          if (st.phase === "done" && st.sc) {
+            var dm = { self: {}, phase: "x" }, sc = {};
+            t.qs.forEach(function (q) { if (q.type !== "fr") sc[q.n] = earned(q, nr[q.n], dm) || 0; });
+            st.sc = sc;
+          }
+        }
+      });
+      if (ch) saveNow();
+    }
+    reconcile();
     document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") saveNow(); });
 
     /* ---------- grading ---------- */
