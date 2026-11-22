@@ -1055,7 +1055,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       return S.t[id];
     }
     var saveTimer = null;
-    function saveNow() { try { snapAll(); } catch (e) {} clearTimeout(saveTimer); saveTimer = null; try { localStorage.setItem(SK, JSON.stringify(S)); } catch (e) {} }
+    function saveNow() { try { snapAll(); } catch (e) {} clearTimeout(saveTimer); saveTimer = null; try { localStorage.setItem(SK, JSON.stringify(S)); } catch (e) {} try { cbChanged(); } catch (e) {} }
     function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); }
     window.addEventListener("pagehide", saveNow);
     function migrateOld() {
@@ -1132,6 +1132,156 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
         }
       });
       if (ch) saveNow();
+    }
+    /* ---------- cloud backup (Google Sheet, own code, same web app as the Practice backup) ---------- */
+    var CU = String((window.APDATA && window.APDATA.SYNC_URL) || "").trim();
+    var CK = "ap-ox-sync";
+    var cb = { cap: null, meta: { code: "", isNew: true, at: 0 }, state: "idle", err: "", timer: null, busy: false, last: "", lastPush: 0, dirty: false };
+    try { var cm = JSON.parse(localStorage.getItem(CK) || "null"); if (cm) Object.assign(cb.meta, cm); } catch (e) {}
+    function cbUrl() { return /^https:\/\/script\.google\.com\/\S+$/.test(CU); }
+    function cbOn() { return cbUrl() && cb.cap === true; }
+    function practiceCode() { try { var c = String((JSON.parse(localStorage.getItem("ap-stations-sync") || "{}").code) || ""); return /^[A-Z]{4,5}-\d{4}$/.test(c) ? c : ""; } catch (e) { return ""; } }
+    function cbSave() { try { localStorage.setItem(CK, JSON.stringify(cb.meta)); } catch (e) {} }
+    function fnv(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+    function cbNewCode() {
+      var w = ["OXLUN", "OXBIL", "OXCOL", "OXLIV", "OXILE", "OXVIL", "OXLYM", "OXCIL", "OXBOL", "OXPLE"], a = new Uint32Array(2);
+      if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(a); else { a[0] = Math.random() * 4e9; a[1] = Math.random() * 4e9; }
+      return w[a[0] % w.length] + "-" + (1000 + a[1] % 9000);
+    }
+    function cbHas() { return DATA.tests.some(function (t) { var s = S.t[t.id]; return s && s.phase && s.phase !== "intro"; }); }
+    function cbName() {
+      var n = ""; try { n = (JSON.parse(localStorage.getItem("ap-stations-sync") || "{}").name || ""); } catch (e) {}
+      return n;
+    }
+    function cbData() {
+      var out = {};
+      DATA.tests.forEach(function (t) {
+        var st = S.t[t.id]; if (!st || !st.phase || st.phase === "intro") return;
+        var o = { phase: st.phase, timed: st.timed, hist: st.hist || [], rec: st.rec, startAt: st.startAt, endAt: st.endAt, endedAt: st.endedAt, auto: st.auto, mig: st.mig };
+        if (st.only) { o.only = st.only; o.resp = st.resp; o.self = st.self; }
+        var hx = {}, hs = {};
+        Object.keys(st.tx || {}).forEach(function (k) { hx[fnv(k)] = st.tx[k]; });
+        Object.keys(st.sx || {}).forEach(function (k) { hs[fnv(k)] = st.sx[k]; });
+        o.tx = hx; o.sx = hs; out[t.id] = o;
+      });
+      return JSON.stringify({ ox: 1, t: out });
+    }
+    function cbSummary() {
+      var done = DATA.tests.filter(function (t) { var s = S.t[t.id]; return s && s.phase === "done"; }).length;
+      var ps = [];
+      DATA.tests.forEach(function (t) { var s = S.t[t.id]; if (s && s.phase === "done" && s.hist && s.hist.length) { var h = s.hist[s.hist.length - 1]; ps.push(pct(h.e, h.p)); } });
+      return { done: done, avg: ps.length ? Math.round(ps.reduce(function (a, b) { return a + b; }, 0) / ps.length) : null };
+    }
+    function cbText() {
+      if (!cbUrl()) return "";
+      if (cb.cap === null) return "Checking the backup sheet…";
+      if (cb.cap === false) return "Not on yet: the Google script needs the update (see the setup steps)";
+      if (cb.state === "saving") return "Backing up…";
+      if (cb.state === "err") return cb.err;
+      if (!cb.meta.code || (cb.meta.isNew && !cbHas())) return "Backup starts after your first quiz";
+      if (cb.dirty) return "Backing up soon…";
+      if (cb.meta.at) { var m = Math.floor((Date.now() - cb.meta.at) / 60000); return "Backed up " + (m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.floor(m / 60) + " h ago" : "on " + new Date(cb.meta.at).toLocaleDateString()); }
+      return "Saved on this device";
+    }
+    function cbPaint() {
+      var a = document.getElementById("oxCbStatus"); if (a) a.textContent = cbText();
+      var b = document.getElementById("oxCbCode"); if (b) b.textContent = cb.meta.code || practiceCode() || "(created after your first quiz)";
+    }
+    function cbChanged() {
+      if (!cbOn() || !cbHas()) return;
+      if (cbData() === cb.last) return;
+      cb.dirty = true; clearTimeout(cb.timer);
+      cb.timer = setTimeout(cbPush, Math.max(5000, 20000 - (Date.now() - cb.lastPush)));
+      cbPaint();
+    }
+    function cbPush() {
+      if (!cbOn()) return;
+      if (cb.busy) { cb.timer = setTimeout(cbPush, 3000); return; }
+      if (!cbHas()) return;
+      if (!cb.meta.code) { cb.meta.code = practiceCode() || cbNewCode(); cb.meta.isNew = true; cbSave(); }
+      cb.busy = true; cb.state = "saving"; cbPaint();
+      var d = cbData(), isNew = cb.meta.isNew;
+      var body = JSON.stringify({ kind: "ox", code: cb.meta.code, name: cbName(), isNew: isNew, data: d, summary: cbSummary() });
+      fetch(CU, { method: "POST", body: body }).then(function (r) { return r.json(); }).then(function (a) {
+        if (a.ok) { cb.meta.isNew = false; cb.meta.at = Date.now(); cb.last = d; cb.lastPush = Date.now(); cb.dirty = cbData() !== d; cb.state = "ok"; cb.err = ""; cbSave(); }
+        else if (a.error === "taken" && isNew) {
+          cb.meta.isNew = false; cbSave();
+          return cbFetch(cb.meta.code).then(function (r) { if (r && r.found) { var dd = JSON.parse(r.data); if (dd && dd.ox) cbMerge(dd); } }).catch(function () {}).then(function () { cb.timer = setTimeout(cbPush, 200); });
+        }
+        else throw new Error(a.error || "error");
+      }).catch(function () {
+        cb.state = "err"; cb.err = "Couldn’t reach the backup sheet. Results are safe on this device; it will try again.";
+        clearTimeout(cb.timer); cb.timer = setTimeout(cbPush, 60000);
+      }).then(function () { cb.busy = false; cbPaint(); });
+    }
+    function cbFetch(code) { return fetch(CU + (CU.indexOf("?") >= 0 ? "&" : "?") + "action=load&kind=ox&code=" + encodeURIComponent(code)).then(function (r) { return r.json(); }); }
+    function cbMerge(obj) {
+      var ids = [];
+      Object.keys(obj.t || {}).forEach(function (id) {
+        var t = TESTS[id]; if (!t) return;
+        var inc = obj.t[id], cur = S.t[id], map = {};
+        t.qs.forEach(function (q) { map[fnv(q.q)] = q.q; });
+        var tx = {}, sx = {};
+        Object.keys(inc.tx || {}).forEach(function (h) { if (map[h]) tx[map[h]] = inc.tx[h]; });
+        Object.keys(inc.sx || {}).forEach(function (h) { if (map[h]) sx[map[h]] = inc.sx[h]; });
+        var cnt = inc.only ? Object.keys(inc.resp || {}).length : Object.keys(tx).length;
+        var curCnt = cur && cur.phase && cur.phase !== "intro" ? Object.keys(cur.resp || {}).length : -1;
+        if (curCnt >= cnt) return;
+        var ns = { phase: inc.phase, timed: inc.timed, hist: inc.hist || [], rec: inc.rec, startAt: inc.startAt, endAt: inc.endAt, endedAt: inc.endedAt, auto: inc.auto, mig: inc.mig, resp: inc.only ? inc.resp : {}, self: inc.only ? inc.self : {}, tx: tx, sx: sx };
+        if (inc.only) ns.only = inc.only;
+        S.t[id] = ns; ids.push(id);
+      });
+      if (ids.length) {
+        reconcile();
+        ids.forEach(function (id) {
+          var st = S.t[id], t = TESTS[id];
+          if (st.phase === "done" && !st.only) {
+            var dm = { self: {}, phase: "x" }, sc = {};
+            t.qs.forEach(function (q) { if (q.type !== "fr") sc[q.n] = earned(q, st.resp[q.n], dm) || 0; });
+            st.sc = sc; delete st.fz;
+          }
+        });
+        saveNow();
+      }
+      return ids.length;
+    }
+    function cbRestore(raw) {
+      var e = String(raw || "").trim().toUpperCase().replace(/\s+/g, "");
+      if (/^[A-Z]{4,5}\d{4}$/.test(e)) e = e.replace(/^([A-Z]+)(\d{4})$/, "$1-$2");
+      if (!/^[A-Z]{4,5}-\d{4}$/.test(e)) return Promise.resolve({ ok: false, msg: "Codes look like LUNG-4821." });
+      return cbFetch(e).then(function (r) {
+        if (!r || !r.ok) return { ok: false, msg: "Couldn’t reach the backup sheet. Try again." };
+        if (!r.found) return { ok: false, msg: "No backup found for " + e + "." };
+        var d; try { d = JSON.parse(r.data); } catch (x) { d = null; }
+        if (!d || !d.ox) return { ok: false, msg: "That backup has no OpenStax quizzes yet." };
+        var n = cbMerge(d);
+        cb.meta.code = e; cb.meta.isNew = false; cb.meta.at = Date.now(); cb.last = ""; cbSave();
+        cb.dirty = true; clearTimeout(cb.timer); cb.timer = setTimeout(cbPush, 5000);
+        return { ok: true, msg: "Brought back " + n + " quiz" + (n === 1 ? "" : "zes") + " from " + e + "." };
+      }, function () { return { ok: false, msg: "Couldn’t reach the backup sheet. Check your internet and try again." }; });
+    }
+    window.addEventListener("pagehide", function () {
+      if (!cbOn() || !cb.dirty || !cbHas() || !cb.meta.code || !navigator.sendBeacon) return;
+      try { navigator.sendBeacon(CU, new Blob([JSON.stringify({ kind: "ox", code: cb.meta.code, name: cbName(), isNew: cb.meta.isNew, data: cbData(), summary: cbSummary() })], { type: "text/plain;charset=utf-8" })); } catch (e) {}
+    });
+    if (cbUrl()) {
+      fetch(CU + (CU.indexOf("?") >= 0 ? "&" : "?") + "action=ping").then(function (r) { return r.json(); }).then(function (j) { cb.cap = !!(j && j.ox); }).catch(function () { cb.cap = false; })
+        .then(function () { cbPaint(); try { if (picker) renderPicker(); } catch (e) {} if (cbOn()) { cbChanged(); } });
+    }
+    setTimeout(function () {
+      if (!cbOn() || !cb.meta.code || cb.meta.isNew) return;
+      cbFetch(cb.meta.code).then(function (r) {
+        if (!r || !r.ok || !r.found) { if (r && r.ok && !r.found) { cb.dirty = true; cbPush(); } return; }
+        var d = JSON.parse(r.data); if (d && d.ox && cbMerge(d)) { renderPicker(); render(); }
+      }).catch(function () {});
+    }, 1500);
+    function cbPanel() {
+      if (!cbUrl()) return "";
+      return '<div class="oxcloud" style="margin:8px 0"><p class="small" style="margin:0"><b>Cloud backup</b> · <span id="oxCbStatus">' + esc(cbText()) + '</span></p>' +
+        '<p class="small" style="margin:4px 0">Your backup code (same as Practice): <b class="mono" id="oxCbCode">' + esc(cb.meta.code || practiceCode() || "(created after your first quiz)") + '</b></p>' +
+        '<div class="btns"><input id="oxCbIn" placeholder="LUNG-4821" autocomplete="off" autocapitalize="characters" spellcheck="false" style="max-width:150px">' +
+        '<button type="button" class="btn" data-bk="cbuse">Bring back from code</button><button type="button" class="btn quiet" data-bk="cbnow">Back up now</button></div>' +
+        '<p class="small" id="oxCbMsg" role="status"></p></div>';
     }
     reconcile();
     document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") saveNow(); });
@@ -1220,33 +1370,14 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     var picker = $("#oxPicker"), stage = $("#oxStage");
     picker.addEventListener("click", function (e) {
       var b = e.target.closest ? e.target.closest("[data-bk]") : null; if (!b) return;
-      if (b.dataset.bk === "load") { $("#oxBkFile").click(); return; }
-      try {
-        saveNow();
-        var blob = new Blob([JSON.stringify({ v: 1, saved: new Date().toISOString(), t: S.t })], { type: "application/json" });
-        var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "openstax-results.json";
-        document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
-        $("#oxBkMsg").textContent = "Saved a copy as openstax-results.json.";
-      } catch (er) { $("#oxBkMsg").textContent = "Could not save a file here."; }
+      if (b.dataset.bk === "cbnow") { cb.dirty = true; cbPush(); var m1 = $("#oxCbMsg"); if (m1) m1.textContent = cbHas() ? "Backing up…" : "Take a quiz first, then back up."; return; }
+      if (b.dataset.bk === "cbuse") {
+        var inp = $("#oxCbIn"), m2 = $("#oxCbMsg"); if (m2) m2.textContent = "Looking for your backup…";
+        cbRestore(inp && inp.value).then(function (r) { if (r.ok) { renderPicker(); render(); } var m3 = $("#oxCbMsg"); if (m3) m3.textContent = r.msg; });
+        return;
+      }
     });
-    picker.addEventListener("change", function (e) {
-      if (e.target.id !== "oxBkFile" || !e.target.files || !e.target.files[0]) return;
-      var rd = new FileReader();
-      rd.onload = function () {
-        try {
-          var d = JSON.parse(rd.result), n = 0;
-          if (!d || !d.t) throw new Error("bad");
-          Object.keys(d.t).forEach(function (id) {
-            if (!TESTS[id]) return;
-            var cur = S.t[id], inc = d.t[id];
-            if (!cur || cur.phase === "intro" || Object.keys(inc.resp || {}).length >= Object.keys(cur.resp || {}).length) { S.t[id] = inc; n++; }
-          });
-          saveNow(); reconcile(); renderPicker(); render();
-          $("#oxBkMsg").textContent = "Loaded results for " + n + " quiz" + (n === 1 ? "" : "zes") + ".";
-        } catch (er) { $("#oxBkMsg").textContent = "That file is not an OpenStax results file."; }
-      };
-      rd.readAsText(e.target.files[0]); e.target.value = "";
-    });
+
     var lb = document.createElement("div");
     lb.className = "invlb"; lb.hidden = true; lb.setAttribute("role", "dialog"); lb.setAttribute("aria-label", "Enlarged image");
     lb.innerHTML = '<img alt=""><button type="button" class="btn invlb-x">Close</button>';
@@ -1369,11 +1500,8 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
         var q = S.t[x.id], h = q.hist && q.hist.length ? q.hist[q.hist.length - 1] : null;
         return "<li><b>" + esc(x.grp.replace(/^Chapter /, "Ch ").split(" ·")[0] + " " + x.short) + "</b>: " + q.phase + ", " + Object.keys(q.resp || {}).length + " answers saved" + (h ? ", scored " + pct(h.e, h.p) + "% on " + esc(h.d) : "") + "</li>";
       }).join("");
-      var bkHtml = '<details class="oxbk"' + (bkOpen ? " open" : "") + ' style="margin-top:14px"><summary>Saved results, backup and restore</summary>' +
-        '<p class="small">Results are saved in this browser only. Save them to a file to keep a copy or move them to another device.</p>' +
-        '<div class="btns"><button type="button" class="btn" data-bk="save">Save results to a file</button><button type="button" class="btn" data-bk="load">Load results from a file</button>' +
-        '<input type="file" accept=".json,application/json" id="oxBkFile" hidden></div><p class="small" id="oxBkMsg" role="status"></p>' +
-        '<ul class="small" style="padding-left:18px;margin:6px 0">' + (rows || "<li>Nothing saved yet.</li>") + "</ul></details>";
+      var bkHtml = '<details class="oxbk"' + (bkOpen ? " open" : "") + ' style="margin-top:14px"><summary>Backup</summary>' +
+        cbPanel() + '<ul class="small" style="padding-left:18px;margin:6px 0">' + (rows || "<li>Nothing saved yet.</li>") + "</ul></details>";
       picker.innerHTML = '<h2>' + esc(DATA.title) + '</h2><p class="tally">Quizzes for each section of the OpenStax A&amp;P 2e chapters on the immune, respiratory and digestive systems.</p>' +
         '<div class="plist">' + items + "</div>" + navHtml + bkHtml;
     }
@@ -1657,7 +1785,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     view.innerHTML = '<section class="stage"><div class="stage-in" id="teamStage"></div></section>';
     mainEl.parentNode.insertBefore(view, mainEl.nextSibling);
     var stage = $("#teamStage");
-    var S = { open: false, rows: null, err: "", loading: false, tried: false, sel: null, sort: "name", at: 0, detail: null };
+    var S = { ox: {}, oxd: null, open: false, rows: null, err: "", loading: false, tried: false, sel: null, sort: "name", at: 0, detail: null };
 
     function setOpen(on) {
       S.open = on; view.hidden = !on; mainEl.hidden = on;
@@ -1679,7 +1807,10 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     function load(key) {
       S.loading = true; S.err = ""; S.tried = true; if (S.open) render();
       if (key) { try { localStorage.setItem(CK, key); } catch (e) {} }
-      return call({}).then(function (j) { S.rows = j.members || []; S.at = Date.now(); }).catch(function (e) {
+      return call({}).then(function (j) { S.rows = j.members || []; S.ox = {}; (j.ox || []).forEach(function (o) { S.ox[o.code] = o; });
+        var have = {}; S.rows.forEach(function (m) { have[m.code] = 1; });
+        (j.ox || []).forEach(function (o) { if (!have[o.code]) S.rows.push({ code: o.code, name: o.name, level: "", saved: o.saved, streak: 0, sets: 0, points: 0, acc: "", labels: 0, mocks: 0, lastMock: "", oxOnly: true }); });
+        S.at = Date.now(); }).catch(function (e) {
         S.rows = null; try { localStorage.removeItem(CK); } catch (x) {}
         S.err = e.message === "not allowed" ? "That captain key isn’t right, or no captain key is set in the Google script yet."
           : e.message === "bad code" ? "The Google script is the old version. Update it with the new Code.gs (see Team Setup.md), then try again."
@@ -1691,6 +1822,8 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     function ago(ms) { if (!ms) return "—"; var d = Math.floor((Date.now() - ms) / 864e5); return d <= 0 ? "today" : d === 1 ? "yesterday" : d + " days ago"; }
     function pctTxt(v) { return v === "" || v == null ? "—" : v + "%"; }
     function nm(m) { return m.name || "(no name)"; }
+    function oxTxt(m) { var o = S.ox[m.code]; return o && o.done ? o.done + " done · " + (o.avg === "" || o.avg == null ? "—" : o.avg + "%") : "—"; }
+    function oxName(id) { try { var t = A.ox.tests.filter(function (x) { return x.id === id; })[0]; return t ? String(t.grp || "").replace(/^Chapter (\d+).*/, "Ch $1") + " · " + (t.short || t.name) : id; } catch (e) { return id; } }
     function bar(label, p, n) { var c = p >= 80 ? "hi" : p >= 60 ? "mid" : "lo"; return '<div class="tmbar"><span>' + esc(label) + (n ? ' <span class="small">(' + n + ")</span>" : "") + '</span><span class="tr"><i class="' + c + '" style="width:' + p + '%"></i></span><span class="mono small">' + p + "%</span></div>"; }
 
     /* accuracy by area and by topic, worked out from the member's saved answers */
@@ -1744,9 +1877,9 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       };
       var sorts = [["name", "Name"], ["saved", "Last active"], ["acc", "Accuracy"], ["streak", "Streak"]];
       h += '<div class="btns" style="margin:10px 0"><span class="small">Sort by</span><div class="seg" id="tmSort" aria-label="Sort members">' + sorts.map(function (s) { return '<button type="button" data-sort="' + s[0] + '" aria-pressed="' + (S.sort === s[0]) + '">' + s[1] + "</button>"; }).join("") + "</div></div>";
-      h += '<div class="tmscroll"><table class="tmtable"><thead><tr><th>Member</th><th>Div</th><th>Last active</th><th>Streak</th><th>Daily sets</th><th>Accuracy</th><th>Labels right</th><th>Last mock</th></tr></thead><tbody>';
+      h += '<div class="tmscroll"><table class="tmtable"><thead><tr><th>Member</th><th>Div</th><th>Last active</th><th>Streak</th><th>Daily sets</th><th>Accuracy</th><th>Labels right</th><th>Last mock</th><th>OpenStax</th></tr></thead><tbody>';
       S.rows.slice().sort(by[S.sort] || by.name).forEach(function (m) {
-        h += '<tr class="tmrow" tabindex="0" data-code="' + esc(m.code) + '"><td><b>' + esc(nm(m)) + '</b><div class="small mono">' + esc(m.code) + "</div></td><td>" + esc(m.level || "") + "</td><td>" + ago(m.saved) + '</td><td class="mono">' + (m.streak || 0) + '</td><td class="mono">' + (m.sets || 0) + '</td><td class="mono">' + pctTxt(m.acc) + '</td><td class="mono">' + (m.labels || 0) + '</td><td class="mono">' + pctTxt(m.lastMock) + "</td></tr>";
+        h += '<tr class="tmrow" tabindex="0" data-code="' + esc(m.code) + '"><td><b>' + esc(nm(m)) + '</b><div class="small mono">' + esc(m.code) + "</div></td><td>" + esc(m.level || "") + "</td><td>" + ago(m.saved) + '</td><td class="mono">' + (m.streak || 0) + '</td><td class="mono">' + (m.sets || 0) + '</td><td class="mono">' + pctTxt(m.acc) + '</td><td class="mono">' + (m.labels || 0) + '</td><td class="mono">' + pctTxt(m.lastMock) + '</td><td class="mono">' + esc(oxTxt(m)) + "</td></tr>";
       });
       return h + '</tbody></table></div><p class="small">Select a member to see accuracy by topic and mock tests.</p></div>';
     }
@@ -1770,6 +1903,19 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
         }
       }
       h += "</div>";
+      var od = S.oxd && S.oxd.code === m.code ? S.oxd : null;
+      h += '<div class="card"><h3 class="parth" style="margin-top:0">OpenStax quizzes</h3>';
+      if (!od) h += '<p class="empty">Loading…</p>';
+      else if (od.err) h += '<p class="sync-msg bad">' + esc(od.err) + "</p>";
+      else {
+        var ids = Object.keys(od.tests || {});
+        if (!ids.length) h += '<p class="empty">No OpenStax quizzes backed up yet.</p>';
+        else h += '<ul class="plainlist">' + ids.sort().map(function (id) {
+          var t = od.tests[id];
+          return "<li>" + esc(oxName(id)) + " · " + (t.phase === "done" ? (t.p ? Math.round(t.e / t.p * 100) + "% (" + fmt(t.e) + " / " + fmt(t.p) + ")" : "done") : "in progress") + (t.d ? " · " + esc(t.d) : "") + "</li>";
+        }).join("") + "</ul>";
+      }
+      h += "</div>";
       if (d && (d.mocks || []).length) {
         h += '<div class="card"><h3 class="parth" style="margin-top:0">Mock tests</h3><ul class="plainlist">' + d.mocks.slice().reverse().map(function (x) {
           var t = x.t ? new Date(x.t < 1e12 ? x.t * 1000 : x.t).toLocaleDateString() : "";
@@ -1779,7 +1925,9 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       return h;
     }
     function openMember(code) {
-      S.sel = code; S.detail = null; render(); window.scrollTo({ top: 0 });
+      S.sel = code; S.detail = null; S.oxd = null; render(); window.scrollTo({ top: 0 });
+      call({ op: "oxmember", code: code }).then(function (j) { S.oxd = { code: code, tests: j.tests || {} }; })
+        .catch(function () { S.oxd = { code: code, err: "OpenStax results need the updated Google script (see the setup steps)." }; }).then(function () { if (S.open && S.sel === code) render(); });
       call({ op: "member", code: code }).then(function (j) { S.detail = { code: code, items: j.items || {}, mocks: j.mocks || [] }; })
         .catch(function () { S.detail = { code: code, err: "Couldn’t load this member’s answers. Try Refresh." }; }).then(function () { if (S.open && S.sel === code) render(); });
     }
