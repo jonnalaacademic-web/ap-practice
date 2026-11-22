@@ -1568,7 +1568,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
           else ansTxt = (q.type === "tf" ? "" : LET[q.ans] + ") ") + q.opts[q.ans];
           var lbl = { g: "Correct", h: "Partial credit", r: answered(q, v) ? "Not quite" : "Left blank" }[vd];
           h += '<div class="fb ' + { g: "ok", h: "half", r: "miss" }[vd] + '"><span class="verdict">' + lbl + " · " + fmt(g) + " / " + fmt(q.pts) + " pts</span>" +
-            (vd === "g" ? "" : "Correct answer: <b>" + esc(ansTxt) + "</b>") + note + "</div>";
+            '<div class="small" style="margin-top:4px">Correct answer: <b>' + esc(ansTxt) + "</b></div>" + note + "</div>";
         }
       }
       var hide = "";
