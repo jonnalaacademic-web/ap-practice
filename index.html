@@ -405,6 +405,15 @@ textarea { width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid 
 details.oxg { margin: 10px 0; border: 1px solid var(--line, rgba(128,128,128,.3)); border-radius: 10px; padding: 0 10px 8px; }
 details.oxg > summary { cursor: pointer; padding: 10px 2px; font-size: 0.82rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.seg.oxbook { display: flex; width: 100%; margin: 2px 0 8px; }
+.seg.oxbook button { flex: 1 1 0; text-align: center; }
+.oxbt { font-family: var(--font-display); font-size: 1rem; margin: 4px 0 0; }
+.oxnd { font-size: 0.72rem; font-weight: 600; color: var(--ok); white-space: nowrap; }
+.oxnd.no { color: var(--muted); font-weight: 500; }
+details.oxnotes { margin: 10px 0 14px; border: 1px solid var(--line); border-radius: 10px; padding: 4px 14px 12px; background: var(--bg); }
+details.oxnotes > summary { cursor: pointer; padding: 8px 0; font-weight: 700; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+details.oxnotes .plainlist li { margin: 6px 0; line-height: 1.5; }
+.oxnotewrap details.oxnotes { margin: 0; background: var(--surface); }
 /* review: correct answer in green; your pick keeps the blue "selected" look plus a bold "your pick" label */
 .opt.wrong, .opt.wrong[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
 .opt.right, .opt.right[aria-pressed="true"] { border-color: var(--ok); background: var(--ok-bg); box-shadow: inset 0 0 0 2px var(--ok); }
@@ -1029,8 +1038,16 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
   var booted = false;
   function boot() {
     if (booted) return;
-    var DATA = window.APDATA && window.APDATA.ox;
-    if (!DATA || !DATA.tests || !DATA.tests.length) return;
+    var OXD = window.APDATA && window.APDATA.ox, TTD = window.APDATA && window.APDATA.tt;
+    var BOOKS = [];
+    if (OXD && OXD.tests && OXD.tests.length) BOOKS.push({ key: "ox", title: OXD.title || "OpenStax A&P 2e", short: "OpenStax", tab: "OpenStax 2e",
+      blurb: "Quizzes for each section of the OpenStax A&P 2e chapters on the immune, respiratory and digestive systems.", tests: OXD.tests });
+    if (TTD && TTD.tests && TTD.tests.length) BOOKS.push({ key: "tt", title: TTD.title || "Tortora, Principles of A&P", short: TTD.short || "Tortora", tab: "Tortora 15e",
+      blurb: TTD.blurb || "", tests: TTD.tests });
+    if (!BOOKS.length) return;
+    var BOOK = {};
+    BOOKS.forEach(function (b) { BOOK[b.key] = b; b.tests.forEach(function (t) { t.book = b.key; }); });
+    var DATA = { title: "Textbooks", tests: BOOKS.reduce(function (a, b) { return a.concat(b.tests); }, []) };
     booted = true;
 
     var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -1044,9 +1061,19 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
 
     /* ---------- saved state ---------- */
     var SK = "ap-ox-v1";
-    var S = { cur: DATA.tests[0].id, open: false, filter: "all", t: {} };
+    var S = { cur: DATA.tests[0].id, open: false, filter: "all", t: {}, book: BOOKS[0].key, curBy: {}, nd: {} };
     try { var saved = JSON.parse(localStorage.getItem(SK) || "null"); if (saved && saved.t) S = Object.assign(S, saved); } catch (e) {}
     if (!TESTS[S.cur]) S.cur = DATA.tests[0].id;
+    S.curBy = S.curBy || {}; S.nd = S.nd || {};
+    if (!BOOK[S.book]) S.book = TESTS[S.cur].book;
+    if (TESTS[S.cur].book !== S.book) { var cb0 = S.curBy[S.book]; S.cur = cb0 && TESTS[cb0] ? cb0 : BOOK[S.book].tests[0].id; }
+    function bookOf(t) { return BOOK[(t && t.book) || "ox"] || BOOKS[0]; }
+    function setBook(k) {
+      if (!BOOK[k] || k === S.book) return;
+      S.curBy[S.book] = S.cur; S.book = k;
+      var c = S.curBy[k]; S.cur = c && TESTS[c] && TESTS[c].book === k ? c : BOOK[k].tests[0].id;
+      saveNow(); render(); window.scrollTo({ top: 0 });
+    }
     function TV(id) {
       var t = TESTS[id], st = S.t[id];
       if (!st || !st.only || !st.only.length) return t;
@@ -1155,7 +1182,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(a); else { a[0] = Math.random() * 4e9; a[1] = Math.random() * 4e9; }
       return w[a[0] % w.length] + "-" + (1000 + a[1] % 9000);
     }
-    function cbHas() { return DATA.tests.some(function (t) { var s = S.t[t.id]; return s && s.phase && s.phase !== "intro"; }); }
+    function cbHas() { return Object.keys(S.nd || {}).length > 0 || DATA.tests.some(function (t) { var s = S.t[t.id]; return s && s.phase && s.phase !== "intro"; }); }
     function cbName() {
       var n = ""; try { n = (JSON.parse(localStorage.getItem("ap-stations-sync") || "{}").name || ""); } catch (e) {}
       return n;
@@ -1171,7 +1198,8 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
         Object.keys(st.sx || {}).forEach(function (k) { hs[fnv(k)] = st.sx[k]; });
         o.tx = hx; o.sx = hs; out[t.id] = o;
       });
-      return JSON.stringify({ ox: 1, t: out });
+      var nd = {}; Object.keys(S.nd || {}).forEach(function (id) { if (TESTS[id]) nd[id] = S.nd[id]; });
+      return JSON.stringify({ ox: 1, t: out, nd: nd });
     }
     function cbSummary() {
       var done = DATA.tests.filter(function (t) { var s = S.t[t.id]; return s && s.phase === "done"; }).length;
@@ -1224,7 +1252,9 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     }
     function cbFetch(code) { return fetch(CU + (CU.indexOf("?") >= 0 ? "&" : "?") + "action=load&kind=ox&code=" + encodeURIComponent(code)).then(function (r) { return r.json(); }); }
     function cbMerge(obj) {
-      var ids = [];
+      var ids = [], ndAdded = 0;
+      Object.keys(obj.nd || {}).forEach(function (id) { if (TESTS[id] && !S.nd[id]) { S.nd[id] = obj.nd[id]; ndAdded++; } });
+      if (ndAdded && !Object.keys(obj.t || {}).length) saveNow();
       Object.keys(obj.t || {}).forEach(function (id) {
         var t = TESTS[id]; if (!t) return;
         var inc = obj.t[id], cur = S.t[id], map = {};
@@ -1250,8 +1280,8 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
           }
         });
         saveNow();
-      }
-      return ids.length;
+      } else if (ndAdded) saveNow();
+      return ids.length + ndAdded;
     }
     function cbRestore(raw) {
       var e = String(raw || "").trim().toUpperCase().replace(/\s+/g, "");
@@ -1261,11 +1291,11 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
         if (!r || !r.ok) return { ok: false, msg: "Couldn’t reach the backup sheet. Try again." };
         if (!r.found) return { ok: false, msg: "No backup found for " + e + "." };
         var d; try { d = JSON.parse(r.data); } catch (x) { d = null; }
-        if (!d || !d.ox) return { ok: false, msg: "That backup has no OpenStax quizzes yet." };
+        if (!d || !d.ox) return { ok: false, msg: "That backup has no textbook quizzes yet." };
         var n = cbMerge(d);
         cb.meta.code = e; cb.meta.isNew = false; cb.meta.at = Date.now(); cb.last = ""; cbSave();
         cb.dirty = true; clearTimeout(cb.timer); cb.timer = setTimeout(cbPush, 5000);
-        return { ok: true, msg: "Brought back " + n + " quiz" + (n === 1 ? "" : "zes") + " from " + e + "." };
+        return { ok: true, msg: "Brought back " + n + " quiz" + (n === 1 ? "" : "zes") + " and notes from " + e + "." };
       }, function () { return { ok: false, msg: "Couldn’t reach the backup sheet. Check your internet and try again." }; });
     }
     window.addEventListener("pagehide", function () {
@@ -1367,7 +1397,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     var tab = document.createElement("button");
     tab.type = "button"; tab.className = "itab"; tab.id = "tab-ox"; tab.setAttribute("role", "tab");
     tab.setAttribute("aria-selected", "false");
-    tab.innerHTML = 'OpenStax <span class="tmr mono" id="oxTimer"></span>';
+    tab.innerHTML = 'Textbooks <span class="tmr mono" id="oxTimer"></span>';
     if (mockTab && mockTab.parentNode) mockTab.parentNode.insertBefore(tab, mockTab.nextSibling); else if (nav) nav.appendChild(tab);
 
     var mainEl = $("#main");
@@ -1478,18 +1508,24 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       var prevOpen = {};
       $$("details.oxg", picker).forEach(function (d) { prevOpen[d.dataset.g] = d.open; });
       var curGrp = (TESTS[S.cur] && TESTS[S.cur].grp) || "";
-      var order = [], byG = {};
-      DATA.tests.map(function (x) {
+      var bk = BOOK[S.book] || BOOKS[0];
+      var order = [], byG = {}, ndG = {}, nnG = {};
+      bk.tests.map(function (x) {
         var s = statusOf(x);
-        var gk = x.grp || ""; if (!byG[gk]) { byG[gk] = []; order.push(gk); }
+        var gk = x.grp || ""; if (!byG[gk]) { byG[gk] = []; order.push(gk); ndG[gk] = 0; nnG[gk] = 0; }
+        var nt = "";
+        if (x.notes && x.notes.length) { nnG[gk]++; if (S.nd[x.id]) { ndG[gk]++; nt = '<span class="oxnd" title="Notes finished">Notes ✓</span>'; } else nt = '<span class="oxnd no">Notes</span>'; }
         byG[gk].push('<button type="button" class="pitem" data-t="' + x.id + '" aria-current="' + (x.id === S.cur) + '"><span class="pt">' + esc(x.name) + '</span>' +
-          '<span class="pm"><span>' + x.qs.length + " Qs · " + fmt(x.total) + " pts</span><span>" + esc(s.txt) + "</span></span>" +
+          '<span class="pm"><span>' + x.qs.length + " Qs · " + fmt(x.total) + " pts" + (nt ? " · " + nt : "") + "</span><span>" + esc(s.txt) + "</span></span>" +
           '<span class="bar"><i class="g" style="width:' + s.w + '%"></i></span></button>');
       });
       var items = order.map(function (g) {
         var op = g in prevOpen ? prevOpen[g] : g === curGrp;
-        return '<details class="oxg" data-g="' + esc(g) + '"' + (op ? " open" : "") + '><summary>' + esc(g) + ' <span class="oxgc">' + byG[g].length + ' quizzes</span></summary>' + byG[g].join("") + "</details>";
+        return '<details class="oxg" data-g="' + esc(g) + '"' + (op ? " open" : "") + '><summary>' + esc(g) + ' <span class="oxgc">' + byG[g].length + ' quizzes' + (nnG[g] ? " · notes " + ndG[g] + "/" + nnG[g] : "") + '</span></summary>' + byG[g].join("") + "</details>";
       }).join("");
+      var bookSeg = BOOKS.length > 1 ? '<div class="seg oxbook" role="group" aria-label="Textbook">' + BOOKS.map(function (b) {
+        return '<button type="button" data-book="' + b.key + '" aria-pressed="' + (b.key === S.book) + '">' + esc(b.tab) + "</button>";
+      }).join("") + "</div>" : "";
       var navHtml = "";
       if (st && (st.phase === "running" || st.phase === "done")) {
         var chips = t.qs.map(function (q) {
@@ -1506,11 +1542,13 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       var pbk = $(".oxbk", picker), bkOpen = pbk ? pbk.open : false;
       var rows = DATA.tests.filter(function (x) { var q = S.t[x.id]; return q && q.phase && q.phase !== "intro"; }).map(function (x) {
         var q = S.t[x.id], h = q.hist && q.hist.length ? q.hist[q.hist.length - 1] : null;
-        return "<li><b>" + esc(x.grp.replace(/^Chapter /, "Ch ").split(" ·")[0] + " " + x.short) + "</b>: " + q.phase + ", " + Object.keys(q.resp || {}).length + " answers saved" + (h ? ", scored " + pct(h.e, h.p) + "% on " + esc(h.d) : "") + "</li>";
+        return "<li><b>" + esc(bookOf(x).short + " " + x.grp.replace(/^Chapter /, "Ch ").split(" ·")[0] + " " + x.short) + "</b>: " + q.phase + ", " + Object.keys(q.resp || {}).length + " answers saved" + (h ? ", scored " + pct(h.e, h.p) + "% on " + esc(h.d) : "") + "</li>";
       }).join("");
       var bkHtml = '<details class="oxbk"' + (bkOpen ? " open" : "") + ' style="margin-top:14px"><summary>Backup</summary>' +
         cbPanel() + '<ul class="small" style="padding-left:18px;margin:6px 0">' + (rows || "<li>Nothing saved yet.</li>") + "</ul></details>";
-      picker.innerHTML = '<h2>' + esc(DATA.title) + '</h2><p class="tally">Quizzes for each section of the OpenStax A&amp;P 2e chapters on the immune, respiratory and digestive systems.</p>' +
+      var ndc = Object.keys(S.nd).filter(function (id) { return TESTS[id] && TESTS[id].book === S.book; }).length;
+      var nnc = bk.tests.filter(function (x) { return x.notes && x.notes.length; }).length;
+      picker.innerHTML = '<h2>Textbooks</h2>' + bookSeg + '<h3 class="oxbt">' + esc(bk.title) + '</h3><p class="tally">' + esc(bk.blurb) + (nnc ? " Notes finished: <b>" + ndc + "/" + nnc + "</b>." : "") + '</p>' +
         '<div class="plist">' + items + "</div>" + navHtml + bkHtml;
     }
 
@@ -1607,14 +1645,34 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       t.qs.forEach(function (q) { if (q.type === "fr") c.fr++; else c.auto++; if (q.tb) c.tb++; });
       return c;
     }
+    function notesHtml(t, open) {
+      if (!t || !t.notes || !t.notes.length) return "";
+      var done = S.nd[t.id];
+      return '<details class="oxnotes"' + (open ? " open" : "") + '><summary>Section notes' + (done ? ' <span class="oxnd">Finished ✓</span>' : ' <span class="oxnd no">' + t.notes.length + " points to read</span>") + "</summary>" +
+        '<ul class="plainlist">' + t.notes.map(function (n) { return "<li>" + esc(n) + "</li>"; }).join("") + "</ul>" +
+        '<div class="btns"><button type="button" class="btn' + (done ? "" : " primary") + '" data-notes="' + t.id + '">' + (done ? "Mark as not finished" : "Mark notes as finished") + "</button>" +
+        (done ? '<span class="small">Finished ' + esc(new Date(done).toLocaleDateString(undefined, { month: "short", day: "numeric" })) + "</span>" : "") + "</div></details>";
+    }
+    function wireNotes(id) {
+      $$("[data-notes]", stage).forEach(function (b) {
+        b.onclick = function () {
+          var k = b.dataset.notes;
+          if (S.nd[k]) delete S.nd[k]; else S.nd[k] = Date.now();
+          saveNow(); var y = window.scrollY; render(); window.scrollTo({ top: y });
+        };
+      });
+    }
     function render() {
       renderPicker();
       var t = TV(S.cur), st = T(S.cur);
       if (st.phase === "running") return renderRunning(t, st);
       if (st.phase === "done") return renderDone(t, st);
       var c = counts(t), hist = st.hist.slice(-5).reverse();
-      stage.innerHTML = '<div class="card qcard"><span class="eyebrow">OpenStax' + (t.div ? " · Div " + esc(t.div) : "") + "</span><h1 class=\"card-title\">" + esc(t.name) + "</h1>" +
-        "<p>Practice quiz for this OpenStax section. Questions are written from the textbook section; labeling questions use the diagram shown.</p>" +
+      var bkk = bookOf(TESTS[t.id]);
+      stage.innerHTML = '<div class="card qcard"><span class="eyebrow">' + esc(bkk.title) + (t.div ? " · Div " + esc(t.div) : "") + "</span><h1 class=\"card-title\">" + esc(t.name) + "</h1>" +
+        (bkk.key === "tt" ? "<p>Practice quiz for this Tortora section. " + (TESTS[t.id].notes ? "Read the section notes first, mark them finished, then take the quiz. " : "") + "Questions are written from the textbook section; labeling questions are text-based.</p>"
+          : "<p>Practice quiz for this OpenStax section. Questions are written from the textbook section; labeling questions use the diagram shown.</p>") +
+        notesHtml(TESTS[t.id], !S.nd[t.id]) +
         '<ul class="plainlist"><li><b>' + t.qs.length + " questions, " + fmt(t.total) + " points</b> · " + t.secs.join(", ") + "</li>" +
         "<li>" + c.auto + " are graded for you (multiple choice, true/false, mark-all, matching and fill-in-the-blank). Mark-all questions give partial credit.</li>" +
         (c.fr ? "<li>" + c.fr + " are written answers. After you submit, compare with the tournament’s expected answer and give yourself points.</li>" : "") +
@@ -1627,6 +1685,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
           return '<li><span class="mk mono">' + pct(m.e, m.p) + '%</span><span class="tx">' + esc(m.d) + " · " + fmt(m.e) + " / " + fmt(m.p) + " pts · " + m.min + " min" + (m.ug ? " · " + m.ug + " not graded" : "") + "</span></li>";
         }).join("") + "</ul>" : "") + "</div>";
       $$("#oxTime button").forEach(function (b) { b.onclick = function () { st.timed = b.dataset.timed === "1"; saveNow(); render(); }; });
+      wireNotes(t.id);
       $("#oxStart").onclick = function () { start(t.id); };
     }
     function answeredCount(t, st) { return t.qs.filter(function (q) { return answered(q, st.resp[q.n]); }).length; }
@@ -1658,17 +1717,22 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
         '<div class="secscore">' + secBoxes + "</div>" +
         (R.ungraded ? '<p class="small" style="margin-top:10px">' + R.ungraded + " written answer" + (R.ungraded === 1 ? "" : "s") + " still need grading. They count as 0 until you give yourself points below.</p>" : "") +
         '<div class="btns" style="margin-top:12px" id="oxAgain">' + (nMiss ? '<button type="button" class="btn primary" data-act="retake-missed">Retake missed only (' + nMiss + ')</button>' : "") + '<button type="button" class="btn" data-act="retake">' + (st.only ? "Retake the whole test" : "Retake this test") + '</button></div></div>' +
+        (TESTS[t.id].notes ? '<div class="qcard oxnotewrap">' + notesHtml(TESTS[t.id], false) + "</div>" : "") +
         '<div class="card paper"><div class="paperhead"><span class="eyebrow">Answer review</span><p class="small" style="margin:4px 0 8px">Green is the correct answer; your pick is marked “your pick”. For written answers, compare with the expected answer and tap your points.</p>' +
         '<div class="seg" id="oxFilter">' + seg + "</div></div>" + paper(t, st, true) + "</div>";
     }
     function refreshDone(keepScroll) {
       var y = window.scrollY; render(); if (keepScroll) window.scrollTo({ top: y });
     }
+    var _renderDone = renderDone;
+    renderDone = function (t, st) { _renderDone(t, st); wireNotes(t.id); };
 
     /* ---------- events ---------- */
     picker.addEventListener("click", function (e) {
+      var bb = e.target.closest("[data-book]");
+      if (bb) { setBook(bb.dataset.book); return; }
       var p = e.target.closest(".pitem");
-      if (p) { S.cur = p.dataset.t; saveNow(); render(); window.scrollTo({ top: 0 }); return; }
+      if (p) { S.cur = p.dataset.t; S.curBy[S.book] = S.cur; saveNow(); render(); window.scrollTo({ top: 0 }); return; }
       var j = e.target.closest("[data-jump]");
       if (j) jump(+j.dataset.jump);
     });
@@ -1838,7 +1902,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
     function pctTxt(v) { return v === "" || v == null ? "—" : v + "%"; }
     function nm(m) { return m.name || "(no name)"; }
     function oxTxt(m) { var o = S.ox[m.code]; return o && o.done ? o.done + " done · " + (o.avg === "" || o.avg == null ? "—" : o.avg + "%") : "—"; }
-    function oxName(id) { try { var t = A.ox.tests.filter(function (x) { return x.id === id; })[0]; return t ? String(t.grp || "").replace(/^Chapter (\d+).*/, "Ch $1") + " · " + (t.short || t.name) : id; } catch (e) { return id; } }
+    function oxName(id) { try { var all = (A.ox ? A.ox.tests : []).concat(A.tt ? A.tt.tests : []); var t = all.filter(function (x) { return x.id === id; })[0]; return t ? (/^tt/.test(id) ? "Tortora " : "OpenStax ") + String(t.grp || "").replace(/^Chapter (\d+).*/, "Ch $1") + " · " + (t.short || t.name) : id; } catch (e) { return id; } }
     function bar(label, p, n) { var c = p >= 80 ? "hi" : p >= 60 ? "mid" : "lo"; return '<div class="tmbar"><span>' + esc(label) + (n ? ' <span class="small">(' + n + ")</span>" : "") + '</span><span class="tr"><i class="' + c + '" style="width:' + p + '%"></i></span><span class="mono small">' + p + "%</span></div>"; }
 
     /* accuracy by area and by topic, worked out from the member's saved answers */
@@ -1892,7 +1956,7 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       };
       var sorts = [["name", "Name"], ["saved", "Last active"], ["acc", "Accuracy"], ["streak", "Streak"]];
       h += '<div class="btns" style="margin:10px 0"><span class="small">Sort by</span><div class="seg" id="tmSort" aria-label="Sort members">' + sorts.map(function (s) { return '<button type="button" data-sort="' + s[0] + '" aria-pressed="' + (S.sort === s[0]) + '">' + s[1] + "</button>"; }).join("") + "</div></div>";
-      h += '<div class="tmscroll"><table class="tmtable"><thead><tr><th>Member</th><th>Div</th><th>Last active</th><th>Streak</th><th>Daily sets</th><th>Accuracy</th><th>Labels right</th><th>Last mock</th><th>OpenStax</th></tr></thead><tbody>';
+      h += '<div class="tmscroll"><table class="tmtable"><thead><tr><th>Member</th><th>Div</th><th>Last active</th><th>Streak</th><th>Daily sets</th><th>Accuracy</th><th>Labels right</th><th>Last mock</th><th>Textbooks</th></tr></thead><tbody>';
       S.rows.slice().sort(by[S.sort] || by.name).forEach(function (m) {
         h += '<tr class="tmrow" tabindex="0" data-code="' + esc(m.code) + '"><td><b>' + esc(nm(m)) + '</b><div class="small mono">' + esc(m.code) + "</div></td><td>" + esc(m.level || "") + "</td><td>" + ago(m.saved) + '</td><td class="mono">' + (m.streak || 0) + '</td><td class="mono">' + (m.sets || 0) + '</td><td class="mono">' + pctTxt(m.acc) + '</td><td class="mono">' + (m.labels || 0) + '</td><td class="mono">' + pctTxt(m.lastMock) + '</td><td class="mono">' + esc(oxTxt(m)) + "</td></tr>";
       });
@@ -1919,12 +1983,12 @@ details.oxg > summary .oxgc { float: right; text-transform: none; letter-spacing
       }
       h += "</div>";
       var od = S.oxd && S.oxd.code === m.code ? S.oxd : null;
-      h += '<div class="card"><h3 class="parth" style="margin-top:0">OpenStax quizzes</h3>';
+      h += '<div class="card"><h3 class="parth" style="margin-top:0">Textbook quizzes (OpenStax and Tortora)</h3>';
       if (!od) h += '<p class="empty">Loading…</p>';
       else if (od.err) h += '<p class="sync-msg bad">' + esc(od.err) + "</p>";
       else {
         var ids = Object.keys(od.tests || {});
-        if (!ids.length) h += '<p class="empty">No OpenStax quizzes backed up yet.</p>';
+        if (!ids.length) h += '<p class="empty">No textbook quizzes backed up yet.</p>';
         else h += '<ul class="plainlist">' + ids.sort().map(function (id) {
           var t = od.tests[id];
           return "<li>" + esc(oxName(id)) + " · " + (t.phase === "done" ? (t.p ? Math.round(t.e / t.p * 100) + "% (" + fmt(t.e) + " / " + fmt(t.p) + ")" : "done") : "in progress") + (t.d ? " · " + esc(t.d) : "") + "</li>";
